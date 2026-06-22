@@ -39,20 +39,6 @@
                     </p>
                 </div>
             </a>
-            {{-- IFA hub hidden for now
-            <a href="ifa"
-                class="relative group h-[26rem] w-[23rem] overflow-hidden hover-effect rounded-t-3xl rounded-bl-3xl mx-auto md:mx-0">
-
-                <img src="images/ifa1.png" alt="IFA Let's EAT" class="absolute inset-0 w-full h-full object-cover z-0">
-
-                <div
-                    class="absolute bottom-0 w-full z-10 bg-black bg-opacity-70 text-white p-6 pb-3 rounded-bl-3xl h-[12rem]">
-                    <div class="text-xl font-bold mb-2 uppercase">{{ t('Let's Educate for Agroecological Transformations') }}</div>
-                    <p class="text-sm">{{ t('The Let's Educate for Agroecological Transformations (EAT) project ...') }}
-                    </p>
-                </div>
-            </a>
-            --}}
 
         </div>
 
