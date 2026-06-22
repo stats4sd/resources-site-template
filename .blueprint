@@ -1,0 +1,25 @@
+created:
+    - database/factories/TagTypeFactory.php
+    - database/factories/TagFactory.php
+    - database/factories/TypeFactory.php
+    - database/factories/TroveFactory.php
+    - database/factories/CollectionFactory.php
+    - database/migrations/2023_11_24_132857_create_tag_types_table.php
+    - database/migrations/2023_11_24_132858_create_tags_table.php
+    - database/migrations/2023_11_24_132859_create_types_table.php
+    - database/migrations/2023_11_24_132900_create_troves_table.php
+    - database/migrations/2023_11_24_132901_create_collections_table.php
+    - database/migrations/2023_11_24_132902_create_collection_trove_table.php
+    - database/migrations/2023_11_24_132903_create_tagables_table.php
+    - app/Models/TagType.php
+    - app/Models/Tag.php
+    - app/Models/Type.php
+    - app/Models/Trove.php
+    - app/Models/Collection.php
+models:
+    User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string:100 nullable' }
+    TagType: { label: 'string:400', description: longtext, freetext: boolean, relationships: { hasMany: Tag } }
+    Tag: { name: 'string:400', slug: 'string:400', tag_type_id: 'foreign:tag_types', relationships: { morphedByMany: Trove } }
+    Type: { name: 'string:400' }
+    Trove: { title: 'string:400', slug: 'string:400', description: longtext, uploader_id: 'id foreign:users', creation_date: date, type_id: 'foreign:types', cover_image: 'string:400', public: boolean, youtube: 'string:400', source: boolean, download_count: 'integer default:null', relationships: { belongsTo: User, belongsToMany: Collection } }
+    Collection: { title: 'string:400', description: longtext, uploader_id: 'id foreign:users', cover_image: 'string:400', public: boolean, relationships: { belongsTo: User, belongsToMany: Trove } }

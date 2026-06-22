@@ -1,0 +1,45 @@
+models:
+
+  TagType:
+    label: string:400
+    description: longtext
+    freetext: boolean
+    relationships:
+      hasMany: Tag
+
+  Tag:
+    name: string:400
+    slug: string:400
+    tag_type_id: foreign:tag_types
+    relationships:
+      morphedByMany: Trove
+
+  Type:
+    name: string:400
+
+  Trove:
+    title: string:400
+    slug: string:400
+    description: longtext
+    uploader_id: id foreign:users
+    creation_date: date
+    type_id: foreign:types
+    cover_image: string:400
+    public: boolean
+    youtube: string:400 # check
+    source: boolean
+    download_count: integer default:null
+    relationships:
+      belongsTo:  User
+      belongsToMany: Collection
+
+  Collection:
+    title: string:400
+    description: longtext
+    uploader_id: id foreign:users
+    cover_image: string:400
+    public: boolean
+    relationships:
+      belongsTo: User
+      belongsToMany: Trove
+
