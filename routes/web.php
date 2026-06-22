@@ -77,17 +77,5 @@ Route::group([
         return view('frn');
     })->name('frn');
 
-    Route::get('/ifa', function () {
-        return view('ifa');
-    })->name('ifa');
-
-    Route::get('/ifastudent', function () {
-        return view('ifastudent');
-    })->name('ifastudent');
-
-    Route::get('/ifaabout', function () {
-        return view('ifaabout');
-    })->name('ifaabout');
-
 
 });
