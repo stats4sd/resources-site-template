@@ -1,1 +1,1 @@
-## Stats4SD Resources
+## Resources Site Template
