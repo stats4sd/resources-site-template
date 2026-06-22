@@ -20,7 +20,6 @@ export default {
                 'stats4sd-red': 'var(--stats4sd-red)',
                 'stats4sd-red-70': 'var(--stats4sd-red-transparent)',
                 'stats4sd-grey': 'var(--stats4sd-grey)',
-                'frn-green': 'var(--frn-green)',
             }
         },
     },
