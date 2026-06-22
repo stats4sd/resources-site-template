@@ -16,6 +16,7 @@ return new class extends Migration
             $table->longText('comment');
             $table->timestamps();
             $table->softDeletes();
+            $table->index(['subject_type', 'subject_id']);
         });
     }
 
