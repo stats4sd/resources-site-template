@@ -42,12 +42,6 @@
                         class=" hover:text-stats4sd-red  {{ request()->is('browse-all') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }} !hover:text-red">
                         {{ t('Browse all') }}
                     </a></li>
-                <li><a href="/theme-pages"
-                        class=" hover:text-stats4sd-red {{ request()->is('theme-pages') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }}">
-
-                        {{ t('Theme Pages') }}
-
-                    </a></li>
 
                 <!-- Language Dropdown -->
                 <li class="relative nav-item dropdown" x-data="{ langOpen: false }">

@@ -59,10 +59,6 @@ Route::group([
     Route::get('/collections', Collections::class)->name('collections');
     Route::get('/browse-all', BrowseAll::class)->name('browse-all');
 
-    Route::get('/theme-pages', function () {
-        return view('theme-pages');
-    })->name('theme-pages');
-
     Route::get('/collections/{id}', function ($id) {
         $collection = Collection::where('id', $id)->firstOrFail();
         return view('collection', compact('collection'));

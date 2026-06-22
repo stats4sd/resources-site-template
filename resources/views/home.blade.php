@@ -57,14 +57,6 @@
                                     ),
                                     'image' => 'images/browse-all-card.jpg',
                                 ],
-                                  [
-                                    'url' => '/theme-pages',
-                                    'title' => t('Theme pages'),
-                                    'desc' => t(
-                                        'Smaller offshoot libraries focused around a specific topic or featuring resources from partner organisations.',
-                                    ),
-                                    'image' => 'images/themes.jpg',
-                                ],
                             ];
                         @endphp
 
