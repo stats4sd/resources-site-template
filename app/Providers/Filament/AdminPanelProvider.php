@@ -8,7 +8,6 @@ use Filament\Widgets;
 use Filament\PanelProvider;
 use App\Filament\Pages\Login;
 use Filament\Support\Colors\Color;
-use App\Filament\Resources\HubResource;
 use App\Filament\Resources\TagResource;
 use Filament\Navigation\NavigationGroup;
 use App\Filament\Resources\TroveResource;
@@ -20,7 +19,6 @@ use App\Filament\Resources\TroveTypeResource;
 use Filament\SpatieLaravelTranslatablePlugin;
 use App\Filament\Resources\CollectionResource;
 use Illuminate\Session\Middleware\StartSession;
-use App\Filament\Resources\OrganisationResource;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Kainiklas\FilamentScout\FilamentScoutPlugin;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -73,7 +71,6 @@ class AdminPanelProvider extends PanelProvider
 
                         ...TroveResource::getNavigationItems(),
                         ...CollectionResource::getNavigationItems(),
-                        // ...HubResource::getNavigationItems(),
                     ])
                     ->groups([
                         NavigationGroup::make('Details')
@@ -81,10 +78,6 @@ class AdminPanelProvider extends PanelProvider
                                 ...TroveTypeResource::getNavigationItems(),
                                 ...TagTypeResource::getNavigationItems(),
                                 ...TagResource::getNavigationItems(),
-                            ]),
-                        NavigationGroup::make('Admin')
-                            ->items([
-                                ...OrganisationResource::getNavigationItems(),
                             ]),
                     ]);
             })

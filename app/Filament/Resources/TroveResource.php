@@ -10,7 +10,6 @@ use App\Models\TagType;
 use Livewire\Component;
 use Filament\Forms\Form;
 use Filament\Tables\Table;
-use App\Models\Organisation;
 use Filament\Resources\Resource;
 use Illuminate\Support\HtmlString;
 use Awcodes\Shout\Components\Shout;
@@ -128,20 +127,6 @@ class TroveResource extends Resource
                                         ->maxDate(now())
                                         ->required()
                                         ->default(now()),
-
-                                    Forms\Components\Select::make('organisation_id')
-                                        ->label('Organisation / Owner')
-                                        ->placeholder('Select the organisation that owns this trove')
-                                        ->helperText('Who is the owner of this trove?')
-                                        ->default(function () {
-                                            $defaultOrg = Organisation::firstWhere('name', 'Stats4SD');
-                                            return $defaultOrg?->id ?? null;
-                                        })
-                                        ->options(function () {
-                                            return \App\Models\Organisation::pluck('name', 'id');
-                                        })
-                                        ->searchable()
-                                        ->required(),
 
                                     Forms\Components\Hidden::make('uploader_id')->default(Auth::user()->id),
                                 ]),
@@ -476,11 +461,6 @@ class TroveResource extends Resource
     public static function getTableColumns(): array
     {
         return [
-            TextColumn::make('organisation.name')
-                ->label('Owner')
-                ->badge()
-                ->sortable()
-                ->searchable(),
             TextColumn::make('title')
                 ->wrap()
                 ->sortable(query: fn(Builder $query, $direction) => $query->orderBy('title->' . app()->currentLocale(), $direction)),
@@ -529,8 +509,6 @@ class TroveResource extends Resource
                 ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
             SelectFilter::make('uploader')
                 ->relationship('user', 'name'),
-            SelectFilter::make('owner')
-                ->relationship('organisation', 'name'),
             ...$tagFilters,
         ];
     }

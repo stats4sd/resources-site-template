@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Organisation;
 use Laravel\Scout\Searchable;
 use Spatie\MediaLibrary\HasMedia;
 use Illuminate\Database\Eloquent\Model;
@@ -98,11 +97,6 @@ class Collection extends Model implements HasMedia
                 return asset('images/default-cover-photo.jpg');
             }
         );
-    }
-
-    public function organisation(): BelongsTo
-    {
-        return $this->belongsTo(Organisation::class);
     }
 
     public function user(): BelongsTo
