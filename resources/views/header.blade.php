@@ -30,14 +30,6 @@
                         class=" hover:text-stats4sd-red {{ request()->is('home') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }} ">
                         {{ t('Library Home') }}
                     </a></li>
-                <li><a href="/resources"
-                        class=" hover:text-stats4sd-red  {{ request()->is('resources') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }} !hover:text-red">
-                        {{ t('Resources') }}
-                    </a></li>
-                <li><a href="/collections"
-                        class=" hover:text-stats4sd-red  {{ request()->is('collections') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }} !hover:text-red">
-                        {{ t('Collections') }}
-                    </a></li>
                 <li><a href="/browse-all"
                         class=" hover:text-stats4sd-red  {{ request()->is('browse-all') ? 'border-b-[6px] pb-5 border-stats4sd-red pb-1' : '' }} !hover:text-red">
                         {{ t('Browse all') }}
@@ -66,10 +58,7 @@
         <nav class="bg-white text-right">
             <ul class="flex flex-col space-y-2 px-6 pb-4">
                 <li><a href="/home" class="text-gray-800 hover:text-gray-600">{{ t('Library Home') }}</a></li>
-                <li><a href="/resources" class="text-gray-800 hover:text-gray-600">{{ t('Resources') }}</a></li>
-                <li><a href="/collections" class="text-gray-800 hover:text-gray-600">{{ t('Collections') }}</a></li>
                 <li><a href="/browse-all" class="text-gray-800 hover:text-gray-600">{{ t('Browse All') }}</a></li>
-                <li><a href="/theme-pages" class="text-gray-800 hover:text-gray-600">{{ t('Theme Pages') }}</a></li>
                 <li class="relative nav-item pt-2 text-gray-800" x-data="{ langOpen: false }">
                     <a class="nav-link" role="button" x-on:click="langOpen = !langOpen">
                         {{ t('Change Language') }}

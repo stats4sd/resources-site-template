@@ -34,22 +34,6 @@
                         @php
                             $cards = [
                                 [
-                                    'url' => '/resources',
-                                    'title' => t('Search resources'),
-                                    'desc' => t(
-                                        'Guides, tools, videos, papers and other items that we use and recommend to others.',
-                                    ),
-                                    'image' => 'images/resources-card.jpg',
-                                ],
-                                [
-                                    'url' => '/collections',
-                                    'title' => t('Search collections'),
-                                    'desc' => t(
-                                        'A collection is a group of resources compiled together for a specific purpose, such as series of guides on a specific topic, or the reading for an online course.',
-                                    ),
-                                    'image' => 'images/theme-card.jpg',
-                                ],
-                                [
                                     'url' => '/browse-all',
                                     'title' => t('Browse All'),
                                     'desc' => t(

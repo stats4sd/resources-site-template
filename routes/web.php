@@ -3,8 +3,6 @@
 use App\Models\Trove;
 use App\Models\Collection;
 use App\Livewire\BrowseAll;
-use App\Livewire\Resources;
-use App\Livewire\Collections;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,8 +53,6 @@ Route::group([
         return view('trove', ['resource' => $resource]);
     })->name('resources.show');
 
-    Route::get('/resources', Resources::class)->name('resources');
-    Route::get('/collections', Collections::class)->name('collections');
     Route::get('/browse-all', BrowseAll::class)->name('browse-all');
 
     Route::get('/collections/{id}', function ($id) {
