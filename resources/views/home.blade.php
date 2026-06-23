@@ -34,36 +34,12 @@
                         @php
                             $cards = [
                                 [
-                                    'url' => '/resources',
-                                    'title' => t('Search resources'),
-                                    'desc' => t(
-                                        'Guides, tools, videos, papers and other items that we use and recommend to others.',
-                                    ),
-                                    'image' => 'images/resources-card.jpg',
-                                ],
-                                [
-                                    'url' => '/collections',
-                                    'title' => t('Search collections'),
-                                    'desc' => t(
-                                        'A collection is a group of resources compiled together for a specific purpose, such as series of guides on a specific topic, or the reading for an online course.',
-                                    ),
-                                    'image' => 'images/theme-card.jpg',
-                                ],
-                                [
                                     'url' => '/browse-all',
                                     'title' => t('Browse All'),
                                     'desc' => t(
                                         'Browse the full library of resources and collections on a variety of topics.',
                                     ),
                                     'image' => 'images/browse-all-card.jpg',
-                                ],
-                                  [
-                                    'url' => '/theme-pages',
-                                    'title' => t('Theme pages'),
-                                    'desc' => t(
-                                        'Smaller offshoot libraries focused around a specific topic or featuring resources from partner organisations.',
-                                    ),
-                                    'image' => 'images/themes.jpg',
                                 ],
                             ];
                         @endphp

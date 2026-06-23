@@ -20,10 +20,6 @@ export default {
                 'stats4sd-red': 'var(--stats4sd-red)',
                 'stats4sd-red-70': 'var(--stats4sd-red-transparent)',
                 'stats4sd-grey': 'var(--stats4sd-grey)',
-                'frn-green': 'var(--frn-green)',
-                'ifa-darkgreen': 'var(--ifa-darkgreen)',
-                'ifa-green': 'var(--ifa-green)',
-                'ifa-yellow': 'var(--ifa-yellow)',
             }
         },
     },

@@ -8,10 +8,6 @@
     --stats4sd-red: #D32229;
     --stats4sd-red-transparent: rgba(52, 20, 21, 0.7);
     --stats4sd-grey: #4d4d4d;
-    --frn-green: #0F443ACF;
-    --ifa-darkgreen: #234636;
-    --ifa-green: #006b51;
-    --ifa-yellow: #ffd100;
 }
 body {
     font-family: 'open sans', 'sans serif';
@@ -82,40 +78,8 @@ nav a {
     @apply text-black flex items-center w-full first-of-type:rounded-t-md last-of-type:rounded-b-md px-0 pl-10 py-2.5 text-sm hover:bg-gray-50 disabled:text-gray-500;
 }
 
-.theme_ifa {
-font-family: "roboto", "open sans", "sans-serif";
-
-}
-
-.theme_ifa h1,.font_lora {
-    font-family: "lora", "serif";
-    }
-
 .font-opensans {
     font-family: 'open sans', 'sans serif';
-}
-.theme_ifa .grey-badge {
-    display: none;
-}
-.theme_ifa .resource-card-button {
-    background-color: var(--ifa-yellow);
-    color: black;
-}
-.theme_ifa .resource-card-icon {
-    background-color: var(--ifa-yellow);
-
-}
-
-.theme_ifa .resource-card-icon svg {
-    fill: black!important;
-}
-
-.theme_ifa .resource-card {
-    background-color: white;
-
-}
-.theme_ifa .resource-card p {
-    margin: 0.1rem 2rem ;
 }
 
 .description p {
