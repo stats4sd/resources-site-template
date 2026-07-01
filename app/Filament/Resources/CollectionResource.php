@@ -4,29 +4,18 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
-use App\Models\Trove;
 use Filament\Forms\Form;
 use App\Models\Collection;
 use Filament\Tables\Table;
-use Filament\Actions\ViewAction;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Wizard;
 use Filament\Forms\Components\Section;
-use Filament\Tables\Filters\SelectFilter;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\ImageEntry;
 use Filament\Resources\Concerns\Translatable;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\CollectionResource\Pages;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
 use App\Filament\Resources\CollectionResource\RelationManagers;
-use Filament\Infolists\Components\SpatieMediaLibraryImageEntry;
-use App\Filament\Resources\CollectionResource\Pages\ViewCollection;
 
 class CollectionResource extends Resource
 {
@@ -65,32 +54,26 @@ class CollectionResource extends Resource
                     ->extraAttributes(['class' => 'grey-box'])
                     ->heading(__('Cover Image'))
                     ->description(__('Add a cover image for the resource. This will be displayed on the front-end.'))
-                    ->columns(3)
-                    ->schema([
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_en')
-                            ->label('English')
-                            ->collection('cover_image_en')
-                            ->disk('s3'),
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_es')
-                            ->label('Spanish')
-                            ->collection('cover_image_es')
-                            ->disk('s3'),
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_fr')
-                            ->label('French')
-                            ->collection('cover_image_fr')
-                            ->disk('s3'),
-                    ]),
+                    ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
+                    ->schema(
+                        collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
+                            Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
+                                ->label($label)
+                                ->collection("cover_image_{$locale}")
+                                ->disk(config('media-library.disk_name'))
+                        )->values()->all()
+                    ),
                 Forms\Components\Hidden::make('uploader_id')
                     ->default(Auth::id()),
 
-                Forms\Components\Section::make('Metadata')
-                    ->icon('heroicon-o-document-chart-bar')
-                    ->iconColor('primary')
-                    ->extraAttributes(['class' => 'grey-box'])
-                    ->schema([
+                // Forms\Components\Section::make('Metadata')
+                //     ->icon('heroicon-o-document-chart-bar')
+                //     ->iconColor('primary')
+                //     ->extraAttributes(['class' => 'grey-box'])
+                //     ->schema([
 
-                        Forms\Components\Hidden::make('uploader_id')->default(Auth::user()->id),
-                    ]),
+                //         // Forms\Components\Hidden::make('uploader_id')->default(Auth::user()->id),
+                //     ]),
 
                 Section::make('Publishing')
                     ->icon('heroicon-o-globe-alt')

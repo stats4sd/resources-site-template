@@ -41,8 +41,6 @@ class TroveTypeResource extends Resource
                     ->columns(3)
                     ->childField(Forms\Components\TextInput::class)
                     ->required(),
-                Forms\Components\Hidden::make('order')
-                    ->default(fn() => (TroveType::max('order') ?? 0) + 1),
             ])->columns(1);
     }
 
@@ -63,8 +61,6 @@ class TroveTypeResource extends Resource
                 Tables\Actions\EditAction::make()
                     ->modalHeading(''),
             ])
-            ->defaultSort('order')
-            ->reorderable('order')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),

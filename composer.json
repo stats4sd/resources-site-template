@@ -9,7 +9,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
-        "algolia/scout-extended": "^3.1",
         "awcodes/shout": "^2.0",
         "chrisreedio/socialment": "^3.9",
         "filament/filament": "^3.2",

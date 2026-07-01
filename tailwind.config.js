@@ -17,9 +17,11 @@ export default {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
             },
             colors: {
-                'stats4sd-red': 'var(--stats4sd-red)',
-                'stats4sd-red-70': 'var(--stats4sd-red-transparent)',
-                'stats4sd-grey': 'var(--stats4sd-grey)',
+                'brand-primary': 'var(--brand-primary)',
+                'brand-secondary': 'var(--brand-secondary)',
+                'brand-bg': 'var(--brand-bg)',
+                'brand-footer-bg': 'var(--brand-footer-bg)',
+                'brand-footer-text': 'var(--brand-footer-text)',
             }
         },
     },

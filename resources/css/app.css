@@ -1,3 +1,5 @@
+/* Brand font - change the @import URL and --brand-font below to use a different Google Font.
+   Browse fonts at https://fonts.google.com */
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wdth,wght@0,75..100,300..800;1,75..100,300..800&display=swap');
 @tailwind base;
 @tailwind components;
@@ -5,12 +7,20 @@
 
 
 :root {
-    --stats4sd-red: #D32229;
-    --stats4sd-red-transparent: rgba(52, 20, 21, 0.7);
-    --stats4sd-grey: #4d4d4d;
+    /* -------------------------------------------------------
+     * Branding - edit these values to rebrand the site
+     * ------------------------------------------------------- */
+    --brand-primary: #D32229;
+    --brand-secondary: #D32229;         /* if no secondary colour, set to same as primary */        
+    --brand-bg: #ffffff;                /* page background colour */
+    --brand-footer-bg: #4d4d4d;         /* footer background colour */
+    --brand-footer-text: #ffffff;       /* footer text colour */
+    --brand-font: 'Open Sans', sans-serif; /* change @import URL above to use a different Google Font */
 }
+
 body {
-    font-family: 'open sans', 'sans serif';
+    font-family: var(--brand-font);
+    background-color: var(--brand-bg);
 }    
 .library-card {
     @apply text-white p-6 rounded-lg shadow-lg w-80 flex flex-col relative;
@@ -27,7 +37,7 @@ body {
 .divider {
     height: 0.8rem;
     width: 90px;
-    background-color: var(--stats4sd-red);
+    background-color: var(--brand-secondary);
     margin-bottom: 1.5rem;
     position: relative;
 }
@@ -63,11 +73,15 @@ h2 {
 }
 
 a {
-    color: var(--stats4sd-red);
+    color: var(--brand-primary);
 }
 
 nav a {
-    color: black ;
+    color: black;
+}
+
+footer a {
+    color: var(--brand-footer-text);
 }
 
 .language-dropdown-menu {

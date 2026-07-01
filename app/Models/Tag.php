@@ -16,6 +16,7 @@ class Tag extends Model
     protected $casts = [
         'id' => 'integer',
         'type_id' => 'integer',
+        'order_column' => 'integer',
     ];
 
     public array $translatable = [

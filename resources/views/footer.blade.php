@@ -1,38 +1,43 @@
-<!-- Footer -->
-<footer class="bg-stats4sd-grey py-12">
-    <div class="max-w-screen-lg 2xl:max-w-screen-xl 3xl:max-w-screen-2xl px-12 sm:px-24 md:px-16 2xl:px-24  mx-auto ">
-        <div class="md:grid md:grid-cols-10 lg:grid-cols-12 gap-4 justify-between text-white text-sm">
-            <div class="col-span-6">
-                <p class="font-bold">© Statistics for Sustainable Development {{ date("Y") }}</p>
-                <ul class="my-2">
-                    <li>
-                        <a href="{{ config('app.front_end_url') }}/privacy-policy" class="hover:underline text-white">{{ t("Privacy policy") }}</a>
-                    </li>
-                </ul>
-                <p class="pt-2">9 Castle Street, Reading, RG1 7SB</p>
-                <p>{{ t("Company Registered in England & Wales Number") }} - 10168747</p>
+<!-- Footer - customise directly in this file -->
+<footer class="bg-brand-footer-bg py-8">
+    <div class="max-w-screen-lg 2xl:max-w-screen-xl px-12 sm:px-24 md:px-16 2xl:px-24 mx-auto">
 
-            </div>
-            <div class="col-span-4 ">
-        
-                <p class="font-bold">{{ t("Contact") }}</p>
-                <p>{{ t("Tel") }}: +44 (0)118 959 9949<br>
-                    {{ t("Email") }}:
-                    <a href="mailto:hello@stats4sd.org" class="hover:underline text-white">hello@stats4sd.org</a>
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-6 text-brand-footer-text text-sm">
+
+            <!-- Org name + attribution -->
+            <div>
+                <a href="{{ config('branding.home_url') }}" class="font-bold hover:underline text-brand-footer-text text-base">
+                    {{ config('branding.org_name') }}
+                </a>
+                <p class="text-xs opacity-70 mt-1">
+                    Built using the
+                    <a href="https://stats4sd.org" target="_blank" rel="noopener" class="underline">Stats4SD</a>
+                    Resources Repository
+                    <a href="https://github.com/stats4sd/resources-site-template" target="_blank" rel="noopener" class="underline">Template</a>
                 </p>
-                <div class="flex space-x-4 mt-4">
-                    <a href="https://www.linkedin.com/company/statistics-for-sustainable-development">
-                        <img src="{{ asset('/images/linkedin_logo.png') }}" class="w-8 h-8">
-                    </a>
-                    <a href="https://www.youtube.com/channel/UCs7EU95YMjhvNozJKCD92xQ">
-                        <img src="{{ asset('/images/youtube_logo.png') }}" class="w-8 h-8">
-                    </a>
-                </div>
-                </div>
-                <div class="col-span-2 w-36 mt-12  lg:mt-0">
-                    <a href="/admin" class=" mt-2 button bg-black text-white text-center py-2 px-8 rounded-full">Staff Login</a>
-                </div>
             </div>
+
+            <!-- Social icons -->
+            @if(config('branding.linkedin_url') || config('branding.youtube_url'))
+                <div class="flex space-x-4">
+                    @if(config('branding.linkedin_url'))
+                        <a href="{{ config('branding.linkedin_url') }}" target="_blank" rel="noopener">
+                            <img src="{{ asset('/images/linkedin_logo.png') }}" class="w-8 h-8" alt="LinkedIn">
+                        </a>
+                    @endif
+                    @if(config('branding.youtube_url'))
+                        <a href="{{ config('branding.youtube_url') }}" target="_blank" rel="noopener">
+                            <img src="{{ asset('/images/youtube_logo.png') }}" class="w-8 h-8" alt="YouTube">
+                        </a>
+                    @endif
+                </div>
+            @endif
+
+            <!-- Staff login -->
+            <a href="/admin" class="bg-brand-footer-text text-brand-footer-bg py-2 px-8 rounded-full whitespace-nowrap">
+                Staff Login
+            </a>
+
         </div>
     </div>
 </footer>

@@ -6,27 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::disableForeignKeyConstraints();
-
-        Schema::create('trove_types', function (Blueprint $table) {
+        Schema::create('site_contents', function (Blueprint $table) {
             $table->id();
-            $table->json('label');
+            $table->string('key')->unique();
+            $table->json('value')->nullable();
             $table->timestamps();
         });
-
-        Schema::enableForeignKeyConstraints();
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('trove_types');
+        Schema::dropIfExists('site_contents');
     }
 };

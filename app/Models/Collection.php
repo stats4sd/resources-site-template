@@ -58,7 +58,7 @@ class Collection extends Model implements HasMedia
         return new Attribute(
             get: function () {
                 $currentLocale = app()->getLocale();
-                $locales = ['en', 'es', 'fr']; // Ordered fallback
+                $locales = array_keys(config('branding.locales', ['en' => 'English'])); // Ordered fallback
 
                 // Make sure current locale is checked first
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
@@ -81,7 +81,7 @@ class Collection extends Model implements HasMedia
         return new Attribute(
             get: function () {
                 $currentLocale = app()->getLocale();
-                $locales = ['en', 'es', 'fr']; // fallback priority
+                $locales = array_keys(config('branding.locales', ['en' => 'English'])); // fallback priority
 
                 // Make sure current locale is checked first
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
