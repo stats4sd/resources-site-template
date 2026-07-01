@@ -139,7 +139,7 @@ class Trove extends Model implements HasMedia
         return new Attribute(
             get: function () {
                 $currentLocale = app()->getLocale();
-                $locales = ['en', 'es', 'fr']; // fallback priority
+                $locales = array_keys(config('branding.locales', ['en' => 'English']));
 
                 // Make sure current locale is checked first
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
@@ -333,7 +333,7 @@ class Trove extends Model implements HasMedia
     public function getContentMedia(): \Illuminate\Support\Collection
     {
         $currentLocale = app()->getLocale();
-        $locales = ['en', 'es', 'fr']; // fallback priority
+        $locales = array_keys(config('branding.locales', ['en' => 'English'])); // fallback priority
 
         // Ordered fallback: current locale first, then English, then any remaining
         $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));

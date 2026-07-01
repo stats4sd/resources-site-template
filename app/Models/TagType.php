@@ -15,6 +15,9 @@ class TagType extends Model
     protected $casts = [
         'id' => 'integer',
         'freetext' => 'boolean',
+        'show_in_filter' => 'boolean',
+        'use_custom_tag_order' => 'boolean',
+        'order_column' => 'integer',
     ];
 
     public array $translatable = [

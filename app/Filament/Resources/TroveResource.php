@@ -13,27 +13,20 @@ use Filament\Tables\Table;
 use Filament\Resources\Resource;
 use Illuminate\Support\HtmlString;
 use Awcodes\Shout\Components\Shout;
-use Filament\Tables\Filters\Filter;
 use Illuminate\Support\Facades\Auth;
 use Filament\Forms\Components\Wizard;
-use Filament\Support\Enums\Alignment;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Repeater;
 use Filament\Tables\Columns\TextColumn;
-use Illuminate\Database\Eloquent\Model;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Concerns\Translatable;
 use App\Filament\Resources\TroveResource\Pages;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Kainiklas\FilamentScout\Traits\InteractsWithScout;
-use Guava\FilamentDrafts\Admin\Actions\SaveDraftAction;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Guava\FilamentDrafts\Admin\Resources\Concerns\Draftable;
@@ -154,35 +147,30 @@ class TroveResource extends Resource
                                 ->extraAttributes(['class' => 'grey-box'])
                                 ->heading(__('Files'))
                                 ->description(__('A trove will often contain multiple files. These are files that are part of the same set, like a powerpoint presentation and the presenter\'s own notes, or question and answer sheets of a quiz'))
-                                ->columns(3)
-                                ->schema([
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('files_en')
-                                        ->label('English')
-                                        ->multiple()
-                                        ->reorderable()
-                                        ->downloadable()
-                                        ->preserveFilenames()
-                                        ->collection('content_en')
-                                        ->disk('s3'),
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('files_es')
-                                        ->label('Spanish')
-                                        ->multiple()
-                                        ->reorderable()
-                                        ->downloadable()
-                                        ->preserveFilenames()
-                                        ->collection('content_es')
-                                        ->disk('s3'),
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('files_fr')
-                                        ->label('French')
-                                        ->multiple()
-                                        ->reorderable()
-                                        ->downloadable()
-                                        ->preserveFilenames()
-                                        ->collection('content_fr')
-                                        ->disk('s3')
-                                        ->rules(['max:100000000000']),
-
-                                ]),
+                                ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
+                                ->schema(
+                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
+                                        Forms\Components\Group::make([
+                                            Forms\Components\SpatieMediaLibraryFileUpload::make("files_{$locale}")
+                                                ->label($label)
+                                                ->multiple()
+                                                ->reorderable()
+                                                ->downloadable()
+                                                ->preserveFilenames()
+                                                ->collection("content_{$locale}")
+                                                ->disk(config('media-library.disk_name')),
+                                            Forms\Components\TextInput::make("file_name_{$locale}")
+                                                ->label("{$label} file display name")
+                                                ->placeholder('Optional - defaults to filename')
+                                                ->dehydrated(false)
+                                                ->afterStateHydrated(function ($component, $record) use ($locale) {
+                                                    if ($record) {
+                                                        $component->state($record->getMedia("content_{$locale}")->first()?->name);
+                                                    }
+                                                }),
+                                        ])
+                                    )->values()->all()
+                                ),
 
                             TranslatableComboField::make('external_links')
                                 ->icon('heroicon-o-link')
@@ -228,18 +216,14 @@ class TroveResource extends Resource
                                 ->extraAttributes(['class' => 'grey-box'])
                                 ->heading(__('Cover Image'))
                                 ->description(__('Add a cover image for the resource. This will be displayed on the front-end.'))
-                                ->columns(3)
-                                ->schema([
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_en')
-                                        ->label('English')
-                                        ->collection('cover_image_en'),
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_es')
-                                        ->label('Spanish')
-                                        ->collection('cover_image_es'),
-                                    Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_fr')
-                                        ->label('French')
-                                        ->collection('cover_image_fr'),
-                                ]),
+                                ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
+                                ->schema(
+                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
+                                        Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
+                                            ->label($label)
+                                            ->collection("cover_image_{$locale}")
+                                    )->values()->all()
+                                ),
                         ]),
                     Wizard\Step::make('Check')
                         ->icon('heroicon-m-clipboard-document-check')

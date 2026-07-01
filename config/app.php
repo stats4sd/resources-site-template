@@ -59,7 +59,7 @@ return [
 
     'asset_url' => env('ASSET_URL'),
 
-    'front_end_url' => env('FRONT_END_URL', 'https://stats4sd.org'),
+    'front_end_url' => env('BRAND_HOME_URL', '/'),
 
     /*
     |--------------------------------------------------------------------------
@@ -87,11 +87,7 @@ return [
 
     'locale' => 'en',
 
-    'locales' => [
-        'en' => 'English',
-        'es' => 'Español',
-        'fr' => 'Français',
-    ],
+    'locales' => ['en' => 'English'],
 
     /*
     |--------------------------------------------------------------------------

@@ -1,18 +1,23 @@
-<div class="relative">
+<div>
+    <div class="h-4 bg-brand-bg"></div>
+    <div class="relative">
     <!-- Background Image-->
-    <img src="images/crops.png" alt="Background Image" class="absolute inset-0 w-full h-[400px] sm:h-[35vh] object-cover filter brightness-50 z-0">
+    {{-- Banner image: replace public/images/banner.png with your own image --}}
+    @if(file_exists(public_path('images/banner.png')))
+        <img src="{{ asset('images/banner.png') }}" alt="Background Image" class="absolute inset-0 w-full h-[400px] sm:h-[35vh] object-cover filter brightness-50 z-0">
+    @endif
 
     <!-- Overlay Content -->
     <div class="relative z-10 flex flex-col items-center justify-center  h-[400px] sm:h-[35vh] px-8 sm:px-20 xl:px-4 text-white">
         <div class="max-w-3xl w-full mx-auto text-center">
             <!-- Heading -->
             <div class="font-bold text-left md:text-center text-4xl sm:text-5xl md:text-5xl">
-                {{ t("Stats4SD Resources Library") }}
+                {!! \App\Models\SiteContent::get('library_heading_line1') !!} {!! \App\Models\SiteContent::get('library_heading_line2') !!}
             </div>
 
             <!-- Description -->
             <div class="mt-6 text-left md:text-center pr-2 mx-auto">
-                <p class="mb-4 text-xl">{!! t("Browse the full library of resources and collections on a variety of topics.") !!}
+                <p class="mb-4 text-xl">{!! \App\Models\SiteContent::get('library_hero_description') !!}
                 </p>
             </div>
         </div>
@@ -22,7 +27,7 @@
         <div class="flex flex-col lg:flex-row lg:gap-12">
 
             <!-- Sidebar (Search & Filters) -->
-            <div class="lg:min-w-[280px] w-full lg:w-2/12 bg-[#f4f4f4] lg:bg-white self-start lg:pl-12 px-8 py-6 lg:py-8 ">
+            <div class="lg:min-w-[280px] w-full lg:w-2/12 bg-[#f4f4f4] lg:bg-brand-bg self-start lg:pl-12 px-8 py-6 lg:py-8 ">
                 <div class="pb-4 sm:pb-0 lg:pb-4 sm:hidden lg:block">
                     <div class="pb-4 sm:pb-0 lg:pb-4 text-xl font-bold">{{ t('Search and filter') }}</div>
                     <div class="divider hidden lg:block"></div>
@@ -53,75 +58,62 @@
                     <div class="divider hidden lg:block"></div>
                 </div>  
                 <!-- Language Filter -->
-                <div class="" x-data="window.innerWidth >= 1024 ? { openLanguage: true } : { openLanguage: false }">
+                @if(count(config('branding.locales')) > 1)
+                <div class="" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
                     <div class="border-t border-gray-400 sm:border-0 lg:border-t mb-6 sm:my-0 lg:mb-6"></div>
-                    <div class="flex justify-between items-center cursor-pointer" @click="openLanguage = !openLanguage">
-                        <label class="text-base  lg:font-bold">{{ t("Language:") }}</label>
-                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="openLanguage ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                        <label class="text-base lg:font-bold">{{ t("Language:") }}</label>
+                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="open ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
                         </svg>
                     </div>
-                    <div class="space-y-2 mt-2 text-sm" x-show="openLanguage" x-show>
-                        <label class="flex items-center">
-                            <input type="checkbox" wire:model="selectedLanguages" value="es" wire:change="search" class="mr-2 accent-stats4sd-red"/>
-                            {{ t("Spanish") }}
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" wire:model="selectedLanguages" value="en" wire:change="search" class="mr-2 accent-stats4sd-red"/>
-                            {{ t("English") }}
-                        </label>
-                        <label class="flex items-center">
-                            <input type="checkbox" wire:model="selectedLanguages" value="fr" wire:change="search" class="mr-2 accent-stats4sd-red"/>
-                            {{ t("French") }}
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Research Methods Filter -->
-                <div class="  sm:ml-6 lg:ml-0" x-data="window.innerWidth >= 1024 ? { openMethods: true } : { openMethods: false }">
-                    <div class="border-t border-gray-400 sm:border-0 lg:border-t my-6 sm:my-0 lg:my-6"></div>
-                    <div class="flex justify-between items-center cursor-pointer" @click="openMethods = !openMethods">
-                        <label class="text-base  lg:font-bold">{{ t("Research method:") }}</label>
-                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="openMethods ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                    </div>
-                    <div class="space-y-2 mt-4 text-sm " x-show="openMethods" x-show>
-                        @foreach($this->researchMethods as $researchMethod)
-                            <label class="flex items-center rounded cursor-pointer">
-                                <input type="checkbox" wire:model="selectedResearchMethods" value="{{ $researchMethod->id }}" class="mr-2 accent-stats4sd-red" wire:change="search"/>
-                                {{ $researchMethod->name }}
+                    <div class="space-y-2 mt-2 text-sm" x-show="open">
+                        @foreach(collect(config('branding.locales'))->sort() as $code => $label)
+                            <label class="flex items-center">
+                                <input type="checkbox" wire:model="selectedLanguages" value="{{ $code }}" wire:change="search" class="mr-2 accent-brand-primary"/>
+                                {{ $label }}
                             </label>
                         @endforeach
                     </div>
                 </div>
+                @endif
 
-                <!-- Topics Filter -->
-                <div class="  sm:ml-6 lg:ml-0" x-data="window.innerWidth >= 1024 ? { openTopics: true } : { openTopics: false }">
+                <!-- Tag Type Filters (configured via admin panel) -->
+                @foreach($filterTagTypes as $filterTagType)
+                <div class="sm:ml-6 lg:ml-0" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
                     <div class="border-t border-gray-400 sm:border-0 lg:border-t my-6 sm:my-0 lg:my-6"></div>
-                    <div class="flex justify-between items-center cursor-pointer" @click="openTopics = !openTopics">
-                        <label class="text-base  lg:font-bold">{{ t("Topic:") }}</label>
-                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="openTopics ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                        <label class="text-base lg:font-bold">{{ $filterTagType->label }}:</label>
+                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="open ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
                         </svg>
                     </div>
-                    <div class="space-y-2 mt-4 text-sm " x-show="openTopics" x-show>
-                        @foreach($this->topics as $topic)
+                    <div class="space-y-2 mt-4 text-sm" x-show="open">
+                        @foreach($filterTagType->tags as $tag)
                             <label class="flex items-center rounded cursor-pointer">
-                                <input type="checkbox" wire:model="selectedTopics" value="{{ $topic->id }}" class="mr-2 accent-stats4sd-red" wire:change="search"/>
-                                {{ $topic->name }}
+                                <input type="checkbox"
+                                    wire:model="selectedTagsByType.{{ $filterTagType->id }}"
+                                    value="{{ $tag->id }}"
+                                    class="mr-2 accent-brand-primary"
+                                    wire:change="search"/>
+                                {{ $tag->name }}
                             </label>
                         @endforeach
                     </div>
                 </div>
+                @endforeach
             </div>
             </div>
 
             <!-- Resources and Collections Cards -->
             <div class="flex-1">
                 <div class="p-8">
-                    {{ t("Showing ") . $this->startOfPage . ' - ' . $this->endOfPage . ' ' . t("out of") . ' ' . $totalResourcesAndCollections . t(" resources and collections") }}
-                    @if($query || !empty($selectedLanguages) || !empty($selectedResearchMethods || !empty($selectedTopics)))
+                    @if($totalResourcesAndCollections === 0)
+                        {{ t("No resources or collections have been added yet.") }}
+                    @else
+                        {{ t("Showing ") . $this->startOfPage . ' - ' . $this->endOfPage . ' ' . t("out of") . ' ' . $totalResourcesAndCollections . t(" resources and collections") }}
+                    @endif
+                    @if($query || !empty($selectedLanguages) || collect($selectedTagsByType)->flatten()->isNotEmpty())
                         <button wire:click="clearFilters" class="text-gray-500 hover:text-gray-700 underline text-sm">
                             {{ t("Clear Filters") }}
                         </button>
@@ -132,7 +124,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 max-w-6xl mx-auto">
                         @foreach ($this->renderedItems as $index => $item)
                             @if($item['type'] === 'resource')
-                                <x-resource-result-card :item="$item" color="stats4sd-red" textcol="white" :show-tags="false"/>
+                                <x-resource-result-card :item="$item" color="brand-secondary" textcol="white" :show-tags="false"/>
                             @elseif($item['type'] === 'collection')
                                 <x-collection-result-card :item="$item"/>
                             @endif
@@ -141,11 +133,12 @@
                 </div>
 
 
+                @if($pageCount > 1)
                 <div class="max-w-6xl mx-auto my-5">
                         <nav class="rounded-md shadow-xs flex w-full justify-end" aria-label="Pagination" x-data="{currentPage: $wire.entangle('currentPage')}">
 
                             <button
-                                :class="currentPage===1 ? bg-gray-50 : 'bg-white hover:text-stats4sd-red'"
+                                :class="currentPage===1 ? bg-gray-50 : 'bg-white hover:text-brand-secondary'"
                                 class="py-2 px-4 rounded-full"
                                 x-on:click="$wire.loadPage(currentPage-1); window.scrollTo({ top: 0, behavior: 'smooth' });"
                                 {{ $currentPage === 1 ? 'disabled="disabled"' : '' }}
@@ -155,7 +148,7 @@
 
                             @for($i=1; $i<=$pageCount; $i++)
                                 <button
-                                    :class="currentPage==={{$i}} ? 'text-white bg-stats4sd-red' : 'text-black hover:text-stats4sd-red'"
+                                    :class="currentPage==={{$i}} ? 'text-white bg-brand-primary' : 'text-black hover:text-brand-primary'"
                                     class="py-2 px-4 rounded-full"
 
                                     x-on:click="$wire.loadPage({{$i}}); window.scrollTo({ top: 0, behavior: 'smooth' });"
@@ -163,7 +156,7 @@
                             @endfor
 
                             <button
-                                :class="currentPage==={{$pageCount}} ? bg-gray-50 : 'bg-white hover:text-stats4sd-red'"
+                                :class="currentPage==={{$pageCount}} ? bg-gray-50 : 'bg-white hover:text-brand-primary'"
                                 class="py-2 px-4 rounded-full"
                                 x-on:click="$wire.loadPage(currentPage+1); window.scrollTo({ top: 0, behavior: 'smooth' });"
                                 {{ $currentPage === $pageCount ? 'disabled="disabled"' : ''}}
@@ -172,8 +165,10 @@
                             </button>
                         </nav>
                     </div>
+                @endif
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </div>

@@ -4,7 +4,6 @@ namespace App\Livewire;
 
 use App\Models\Trove;
 use Livewire\Component;
-use Illuminate\Database\Eloquent\Collection;
 
 class TroveRelatedTroves extends Component
 {

@@ -3,7 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Collection;
-use App\Models\Tag;
+use App\Models\TagType;
 use App\Models\Trove;
 use App\Traits\UsesCustomSearchOptions;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -37,9 +37,7 @@ class BrowseAll extends Component
 
     public array $selectedLanguages = [];
 
-    public array $selectedResearchMethods = [];
-
-    public array $selectedTopics = [];
+    public array $selectedTagsByType = [];
 
     protected $listeners = ['queryUpdated' => 'updateResults'];
 
@@ -84,15 +82,9 @@ class BrowseAll extends Component
             }
         }
 
-        if (!empty($this->selectedResearchMethods)) {
-            foreach ($this->selectedResearchMethods as $methodId) {
-                $resourceQuery->whereHas('tags', fn($q) => $q->where('tags.id', $methodId));
-            }
-        }
-
-        if (!empty($this->selectedTopics)) {
-            foreach ($this->selectedTopics as $topicId) {
-                $resourceQuery->whereHas('tags', fn($q) => $q->where('tags.id', $topicId));
+        foreach ($this->selectedTagsByType as $tagIds) {
+            if (!empty($tagIds)) {
+                $resourceQuery->whereHas('tags', fn($q) => $q->whereIn('tags.id', $tagIds));
             }
         }
 
@@ -172,7 +164,7 @@ class BrowseAll extends Component
 
     public function clearFilters()
     {
-        $this->reset('query', 'selectedLanguages', 'selectedResearchMethods', 'selectedTopics');
+        $this->reset('query', 'selectedLanguages', 'selectedTagsByType');
         $this->dispatch('clearSearchInput');
         $this->search();
     }
@@ -184,22 +176,26 @@ class BrowseAll extends Component
         $this->search();
     }
 
-    public function getResearchMethodsProperty()
+    public function getFilterTagTypesProperty()
     {
         $locale = app()->getLocale();
 
-        return Tag::whereHas('tagType', function ($query) {
-            $query->where('slug', 'research-methods');
-        })->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, '$.\"$locale\"')))")->get();
-    }
-
-    public function getTopicsProperty()
-    {
-        $locale = app()->getLocale();
-
-        return Tag::whereHas('tagType', function ($query) {
-            $query->where('slug', 'topics');
-        })->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, '$.\"$locale\"')))")->get();
+        return TagType::where('show_in_filter', true)
+            ->orderByRaw('ISNULL(order_column), order_column ASC')
+            ->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(label, '$.\"$locale\"')))")
+            ->with(['tags' => fn($q) => $q
+                ->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, '$.\"$locale\"')))")
+            ])
+            ->get()
+            ->each(function ($tagType) {
+                if ($tagType->use_custom_tag_order) {
+                    $tagType->setRelation('tags',
+                        $tagType->tags
+                            ->sortBy(fn($tag) => [$tag->order_column === null ? 1 : 0, $tag->order_column ?? PHP_INT_MAX])
+                            ->values()
+                    );
+                }
+            });
     }
 
     public function loadPage(int $page): void
@@ -224,8 +220,7 @@ class BrowseAll extends Component
     public function render()
     {
         return view('livewire.browse-all', [
-            'researchMethods' => $this->researchMethods,
-            'topics' => $this->topics,
+            'filterTagTypes' => $this->filterTagTypes,
             'items' => $this->items,
         ]);
     }

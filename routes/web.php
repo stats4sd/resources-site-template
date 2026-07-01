@@ -35,7 +35,7 @@ Route::group([
         }
 
         $resource = Trove::withDrafts()->where('slug', $slug)->firstOrFail();
-        return view('trove', compact('resource'));
+        return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     });
 
     Route::get('/resources/{troveKey}', function ($troveKey) {
@@ -50,7 +50,7 @@ Route::group([
             return redirect()->route('resources.show', ['troveKey' => $resource->slug], 301);
         }
     
-        return view('trove', ['resource' => $resource]);
+        return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     })->name('resources.show');
 
     Route::get('/browse-all', BrowseAll::class)->name('browse-all');
