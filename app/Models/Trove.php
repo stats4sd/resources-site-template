@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use App\Enums\ReviewStatus;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use App\Models\Scopes\PublishedScope;
@@ -42,6 +43,8 @@ class Trove extends Model implements HasMedia
         'youtube_links' => 'array',
         'published_at' => 'datetime',
         'previous_slugs' => 'array',
+        'review_requested_at' => 'datetime',
+        'reviewed_at' => 'datetime',
     ];
 
     /**
@@ -106,6 +109,37 @@ class Trove extends Model implements HasMedia
         return Attribute::get(fn () => $this->published_at !== null);
     }
 
+    /**
+     * The single source of truth for this working row's lifecycle state. Derived by
+     * precedence (the actionable state wins): an outstanding review beats everything,
+     * then shadow-draft-of-a-live-row, then live, then never-published. reviewed_at is
+     * intentionally NOT part of this — it is rendered as an orthogonal "✓ reviewed" mark.
+     */
+    protected function reviewStatus(): Attribute
+    {
+        return Attribute::get(function (): ReviewStatus {
+            if ($this->review_requested_at !== null && $this->reviewed_at === null) {
+                return ReviewStatus::InReview;
+            }
+
+            if ($this->published_id !== null) {
+                return ReviewStatus::PublishedWithPendingChanges;
+            }
+
+            if ($this->published_at !== null) {
+                return ReviewStatus::Published;
+            }
+
+            return ReviewStatus::Draft;
+        });
+    }
+
+    /** True while a requested review is still outstanding (requested, not yet completed). */
+    protected function reviewInProgress(): Attribute
+    {
+        return Attribute::get(fn () => $this->review_requested_at !== null && $this->reviewed_at === null);
+    }
+
     /** @return string[] relation names copied between a canonical row and its shadow draft */
     public function getDraftableRelations(): array
     {
@@ -142,6 +176,15 @@ class Trove extends Model implements HasMedia
             ->where(fn (Builder $q) => $q
                 ->whereNotNull('published_id')
                 ->orWhereDoesntHave('draft'));
+    }
+
+    /** The personal queue: working rows with an outstanding review assigned to $userId. */
+    public function scopeAwaitingReviewBy(Builder $query, int $userId): Builder
+    {
+        return $query->workingVersions()
+            ->whereNotNull('review_requested_at')
+            ->whereNull('reviewed_at')
+            ->where('reviewer_id', $userId);
     }
 
     // Media Library - explicitly register collections
@@ -207,9 +250,13 @@ class Trove extends Model implements HasMedia
         return $this->belongsTo(User::class);
     }
 
-    public function checker(): BelongsTo
+    /**
+     * The reviewer: while a review is outstanding this is the assigned person; once the
+     * review is completed it is whoever ACTUALLY reviewed + approved (see TrovePublisher).
+     */
+    public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'checker_id');
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 
     public function requester(): BelongsTo
@@ -246,7 +293,7 @@ class Trove extends Model implements HasMedia
     /**
      * Whether a published version of this logical Trove exists — true for a live
      * canonical row, and for a shadow draft (whose canonical is by definition live).
-     * Drives the "Save and Publish" vs "Save and Publish Changes" button label.
+     * Drives the "Publish" vs "Publish changes" button label.
      */
     public function hasPublishedVersion(): Attribute
     {

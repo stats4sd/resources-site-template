@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Trove;
+use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
@@ -25,8 +26,10 @@ class TrovePublisher
         'created_at',
         'updated_at',
         'deleted_at',
-        'checker_id',
+        'reviewer_id',
         'requester_id',
+        'review_requested_at',
+        'reviewed_at',
     ];
 
     /**
@@ -42,7 +45,15 @@ class TrovePublisher
 
         return DB::transaction(function () use ($canonical) {
             /** @var Trove $draft */
-            $draft = $canonical->replicate(['published_at', 'checker_id', 'requester_id']);
+            // A fresh edit of a live Trove starts with a clean review slate: exclude all
+            // four review fields so a re-edit can never inherit a stale reviewer/request.
+            $draft = $canonical->replicate([
+                'published_at',
+                'reviewer_id',
+                'requester_id',
+                'review_requested_at',
+                'reviewed_at',
+            ]);
             $draft->published_id = $canonical->id;   // links draft -> canonical; published_at stays null
             $draft->save();
 
@@ -57,21 +68,24 @@ class TrovePublisher
      * Publish $trove and return the live canonical row.
      *
      * - Shadow draft: its content/relations/media are copied onto the canonical (PK
-     *   unchanged), the canonical is marked published, review fields cleared, and the
-     *   draft row is discarded.
+     *   unchanged), the canonical is marked published, the review request cleared (the
+     *   approval stamp preserved), and the draft row is discarded.
      * - Never-published canonical: published in place.
+     *
+     * In both cases publishing always clears the outstanding *request* but preserves the
+     * *approval* stamp (reviewed_at + reviewer_id) so "published with a review" stays
+     * distinguishable from "published without one".
      */
     public function publish(Trove $draft): Trove
     {
-        // Never-published canonical: publish in place and clear review fields.
+        // Never-published canonical: publish in place.
         if ($draft->published_id === null) {
 
             return DB::transaction(function () use ($draft) {
                 if ($draft->published_at === null) {
                     $draft->published_at = now();
                 }
-                $draft->checker_id = null;
-                $draft->requester_id = null;
+                $this->applyReviewStateOnPublish($draft, $draft);
                 $draft->save();
 
                 return $draft;
@@ -96,8 +110,10 @@ class TrovePublisher
             if ($canonical->published_at === null) {
                 $canonical->published_at = now();
             }
-            $canonical->checker_id = null;
-            $canonical->requester_id = null;
+            // NON_CONTENT excludes the review fields, so forceFill did not carry the draft's
+            // request onto the canonical; set the canonical's review state explicitly from
+            // the draft's completion state.
+            $this->applyReviewStateOnPublish($canonical, $draft);
             $canonical->save();
 
             $this->copyRelations($draft, $canonical);
@@ -124,6 +140,54 @@ class TrovePublisher
     {
         $canonical->published_at = null;
         $canonical->save();
+    }
+
+    /**
+     * Request a review of $working: assign the reviewer and record who asked. A review is
+     * "outstanding" from now until it is completed (reviewed_at) or consumed by publish.
+     */
+    public function requestReview(Trove $working, User $reviewer, ?User $requester = null): Trove
+    {
+        $working->review_requested_at = now();
+        $working->reviewed_at = null;
+        $working->reviewer_id = $reviewer->id;
+        $working->requester_id = $requester?->id ?? auth()->id();
+        $working->save();
+
+        return $working;
+    }
+
+    /**
+     * Complete the review of $working. reviewer_id is overwritten with whoever ACTUALLY
+     * reviewed (often not the assignee — we keep only the real approver, per decision 2);
+     * reviewed_at becomes the durable "✓ reviewed" fact that drives "done".
+     */
+    public function completeReview(Trove $working, User $reviewer): Trove
+    {
+        $working->reviewer_id = $reviewer->id;
+        $working->reviewed_at = now();
+        $working->save();
+
+        return $working;
+    }
+
+    /**
+     * Set the resulting canonical's review state on publish: always clear the outstanding
+     * request; preserve the approval stamp only if the working row was actually reviewed
+     * (no false "reviewed by" attribution on a trove published without a review).
+     */
+    private function applyReviewStateOnPublish(Trove $canonical, Trove $working): void
+    {
+        $canonical->review_requested_at = null;
+        $canonical->requester_id = null;
+
+        if ($working->reviewed_at !== null) {
+            $canonical->reviewed_at = $working->reviewed_at;
+            $canonical->reviewer_id = $working->reviewer_id;
+        } else {
+            $canonical->reviewed_at = null;
+            $canonical->reviewer_id = null;
+        }
     }
 
     /** Sync the draftable relations (tags, troveTypes, collections) from $from onto $to. */

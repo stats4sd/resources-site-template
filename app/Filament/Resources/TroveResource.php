@@ -23,7 +23,6 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Concerns\Translatable;
 use App\Filament\Resources\TroveResource\Pages;
 use App\Models\Scopes\PublishedScope;
@@ -31,7 +30,6 @@ use Kainiklas\FilamentScout\Traits\InteractsWithScout;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
-use App\Filament\Forms\Components\Actions\SaveDraftFormAction;
 
 class TroveResource extends Resource
 {
@@ -233,112 +231,17 @@ class TroveResource extends Resource
                                     )->values()->all()
                                 ),
                         ]),
-                    Wizard\Step::make('Check')
+                    Wizard\Step::make('Review')
                         ->icon('heroicon-m-clipboard-document-check')
                         ->schema([
-                            Shout::make('check')
+                            Shout::make('review')
                                 ->content(new HtmlString(
                                     '
-<h4 class="text-lg mb-2">Review and Publish</h4>
-<p>Once the trove is ready to be published, we recommend that you invite someone to check it over, to catch any issues. Requesting a review records who you asked, and the trove appears in the <b>Check Requested</b> tab of the trove list for the team to pick up.</p>
-<p>If you are happy with the trove, you can publish it immediately by clicking the <b>Publish</b> button below to make it live on the site.</p>'
+<h4 class="text-lg mb-2">Review and publish</h4>
+<p>Two pairs of eyes are better than one: we recommend inviting someone to review the trove before it goes live. Use <b>Request review</b> below to pick a reviewer — it then appears in their <b>Needs my review</b> queue and in the <b>In review</b> tab of the trove list.</p>
+<p>Reviewing is optional. When you are happy, use <b>Publish</b> below to make the trove live. You can save your work at any time with <b>Save draft</b>.</p>'
                                 ))
                                 ->type('info'),
-
-                            Forms\Components\Section::make('')
-                                ->extraAttributes(['class' => 'grey-box'])
-                                ->schema([
-                                    Forms\Components\Radio::make('next_steps')
-                                        ->dehydrated(false)
-                                        ->label('What do you want to do with this trove?')
-                                        ->inlineLabel()
-                                        ->inline()
-                                        ->options([
-                                            'save' => 'Save the trove as a draft',
-                                            'review' => 'Request a Review / Check',
-                                            'publish' => 'Publish it!',
-                                        ])
-                                        ->live(),
-                                ]),
-
-                            Forms\Components\Grid::make([
-                                'default' => 3,
-                                'sm' => 1,
-                                'lg' => 3,
-                            ])
-                                ->schema([
-                                    Forms\Components\Fieldset::make('Save as Draft')
-                                        ->columns(1)
-                                        ->visible(fn(Forms\Get $get) => $get('next_steps') === 'save')
-                                        ->schema([
-                                            Shout::make('save_draft')
-                                                ->content(new HtmlString('Save the trove with the current changes, but do not publish it. You can come back to it later to finish it. Use the "Save Draft" button below')),
-                                            Forms\Components\Actions::make([SaveDraftFormAction::make()])
-                                                ->alignEnd(),
-                                        ]),
-                                    Forms\Components\Fieldset::make('Check Request')
-                                        ->columns(1)
-                                        ->visible(fn(Forms\Get $get) => $get('next_steps') === 'review')
-                                        ->schema([
-
-                                            // requester_id is stamped in the page's save handler
-                                            // (auth id when a checker is chosen) — not derived here.
-                                            Forms\Components\Select::make('checker_id')
-                                                ->label('Select the person to ask')
-                                                ->relationship('checker', 'name')
-                                                ->live(),
-
-
-                                            Forms\Components\Actions::make([
-                                                SaveDraftFormAction::make()
-                                                    ->label('Save as Draft and Request Review'),
-                                            ])
-                                                ->alignEnd(),
-                                        ]),
-                                    Forms\Components\Fieldset::make('Publish it')
-                                        ->columns(1)
-                                        ->visible(fn(Forms\Get $get) => $get('next_steps') === 'publish')
-                                        ->schema([
-                                            Shout::make('publish_it')
-                                                ->content(new HtmlString('Publish the trove with the current changes. This will make it live on the site. Use the "Save and Publish" button below')),
-
-                                            Shout::make('are_you_sure')
-                                                ->type('warning')
-                                                ->visible(fn(Forms\Get $get) => !$get('checker_id'))
-                                                ->content(new HtmlString('It looks like no-one has been asked to check this trove. Are you sure you want to publish it?')),
-
-                                            Shout::make('are_you_sure_again')
-                                                ->type('warning')
-                                                ->visible(fn(?Trove $record) => $record?->requester_id === auth()->id())
-                                                ->content(new HtmlString('It looks like you previously asked someone else to check this trove. Are you sure you want to publish it before it is checked?')),
-
-                                            Forms\Components\Checkbox::make('should_publish')
-                                                ->dehydrated(false)
-                                                ->label('I am sure I want to publish this trove')
-                                                ->visible(fn(?Trove $record, Forms\Get $get) => !$get('checker_id') || $record?->requester_id === auth()->id())
-                                                ->live()
-                                                ->required(),
-
-
-                                            Forms\Components\Actions::make([
-                                                Forms\Components\Actions\Action::make('Save and Publish')
-                                                    ->label(fn(?Trove $record) => $record?->has_published_version ? __('Save and Publish Changes') : __('Save and Publish'))
-                                                    ->disabled(fn(Forms\Get $get) => !$get('checker_id') && !$get('should_publish'))
-                                                    ->action(function ($livewire) {
-                                                        $livewire->shouldPublish = true;
-
-                                                        if ($livewire instanceof CreateRecord) {
-                                                            $livewire->create();
-                                                        }
-
-                                                        if ($livewire instanceof EditRecord) {
-                                                            $livewire->save();
-                                                        }
-                                                    }),
-                                            ])
-                                                ->alignEnd(),
-                                        ]),
-                                ]),
                         ]),
                 ])
                 ->skippable(fn(Component $livewire) => $livewire instanceof EditRecord),
@@ -454,6 +357,14 @@ class TroveResource extends Resource
             TextColumn::make('title')
                 ->wrap()
                 ->sortable(query: fn(Builder $query, $direction) => $query->orderBy('title->' . app()->currentLocale(), $direction)),
+            // At-a-glance lifecycle state (single source of truth: Trove::reviewStatus()),
+            // with the orthogonal "✓ reviewed by X" stamp shown beneath it when present.
+            TextColumn::make('review_status')
+                ->label('Status')
+                ->badge()
+                ->description(fn(Trove $record) => $record->reviewed_at
+                    ? '✓ reviewed by ' . ($record->reviewer?->name ?? 'unknown')
+                    : null),
             SpatieMediaLibraryImageColumn::make('cover_image')
                 ->collection(fn(Component $livewire) => 'cover_image_' . $livewire->activeLocale),
             TextColumn::make('created_at')

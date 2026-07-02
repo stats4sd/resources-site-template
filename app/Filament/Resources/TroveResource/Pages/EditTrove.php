@@ -2,10 +2,11 @@
 
 namespace App\Filament\Resources\TroveResource\Pages;
 
-use App\Services\TrovePublisher;
-use App\Filament\Forms\Components\Actions\SaveDraftFormAction;
+use App\Enums\ReviewStatus;
 use App\Filament\Resources\TroveResource;
+use App\Filament\Resources\TroveResource\Concerns\HasTroveFormActions;
 use App\Models\Trove;
+use App\Services\TrovePublisher;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -15,14 +16,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditTrove extends EditRecord
 {
+    use HasTroveFormActions;
+
     protected static string $resource = TroveResource::class;
     public static string|Alignment $formActionsAlignment = Alignment::End;
-
-    /** Set by the Check-step "Save and Publish" action; false means save-as-draft. */
-    public bool $shouldPublish = false;
-
-    /** Remembers, for the saved-notification title, whether this save published. */
-    protected bool $justPublished = false;
 
     /**
      * Editing a live Trove must not disturb the public copy, so the moment a published
@@ -54,6 +51,21 @@ class EditTrove extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Complete an outstanding review: records whoever ACTUALLY reviewed as the
+            // approver (often not the assignee), then stamps the durable "✓ reviewed" fact.
+            Actions\Action::make('mark_reviewed')
+                ->label('Mark as reviewed')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::InReview)
+                ->requiresConfirmation()
+                ->modalDescription('This records that you have reviewed and approved this trove. It does not publish it.')
+                ->action(function (Trove $record) {
+                    app(TrovePublisher::class)->completeReview($record, auth()->user());
+                    Notification::make()->title('Review completed')->success()->send();
+
+                    return redirect($this->getResource()::getUrl('edit', ['record' => $record->getKey()]));
+                }),
             Actions\Action::make('discard_draft')
                 ->label('Discard draft changes')
                 ->icon('heroicon-o-arrow-uturn-left')
@@ -84,16 +96,6 @@ class EditTrove extends EditRecord
         ];
     }
 
-    /** Stamp the requester when a checker is being assigned (review 1.2). */
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        if (! empty($data['checker_id']) && empty($data['requester_id'])) {
-            $data['requester_id'] = auth()->id();
-        }
-
-        return $data;
-    }
-
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         $record->update($data);
@@ -103,27 +105,11 @@ class EditTrove extends EditRecord
 
     protected function afterSave(): void
     {
-        // Persist per-locale content file names onto the (draft) record's media.
-        $formData = $this->form->getRawState();
-        foreach (array_keys(config('branding.locales', ['en' => 'English'])) as $locale) {
-            $name = $formData["file_name_{$locale}"] ?? null;
-            if ($name) {
-                $this->record->getMedia("content_{$locale}")->each(fn ($m) => $m->update(['name' => $name]));
-            }
-        }
-
-        // Fold the now fully-saved draft (fields + relations + media) onto its canonical.
-        $this->justPublished = $this->shouldPublish;
-        if ($this->shouldPublish) {
-            app(TrovePublisher::class)->publish($this->record);
-        }
-
-        $this->shouldPublish = false;
+        $this->finalizeTroveSave();
     }
 
     protected function getSavedNotificationTitle(): ?string
     {
-        return $this->justPublished ? 'Published' : 'Draft saved';
+        return $this->troveSavedNotificationTitle();
     }
-
 }
