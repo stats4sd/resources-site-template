@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat ~/Sites/stats4sd-resources/CLAUDE.md 2>/dev/null | head -300)",
+      "Read(//Users/dave/Sites/stats4sd-resources/**)",
+      "Read",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(stat *)",
+      "Bash(file *)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(**/.env)",
+      "Bash(*.env *)"
+    ]
+  }
+}
