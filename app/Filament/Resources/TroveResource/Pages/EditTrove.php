@@ -32,7 +32,7 @@ class EditTrove extends EditRecord
 
         $trove = $this->getRecord();
 
-        if ($trove->published_id === null && $trove->published_at !== null) {
+        if ($trove->review_status === ReviewStatus::Published) {
             $draft = app(TrovePublisher::class)->draftFor($trove);
             $this->redirect(TroveResource::getUrl('edit', ['record' => $draft->getKey()]));
         }
@@ -70,7 +70,7 @@ class EditTrove extends EditRecord
                 ->label('Discard draft changes')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('gray')
-                ->visible(fn (Trove $record) => $record->published_id !== null)
+                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::PublishedWithPendingChanges)
                 ->requiresConfirmation()
                 ->modalDescription('This discards the unpublished changes and keeps the live version as it is.')
                 ->action(function (Trove $record) {
@@ -83,7 +83,7 @@ class EditTrove extends EditRecord
                 ->label('Unpublish')
                 ->icon('heroicon-o-eye-slash')
                 ->color('warning')
-                ->visible(fn (Trove $record) => $record->published_id !== null)
+                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::PublishedWithPendingChanges)
                 ->requiresConfirmation()
                 ->modalDescription('This removes the trove from the public site (and discards any draft changes). It is not deleted.')
                 ->action(function (Trove $record) {

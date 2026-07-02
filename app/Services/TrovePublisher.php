@@ -99,7 +99,14 @@ class TrovePublisher
 
             $previousSlug = $canonical->slug;
 
-            $canonical->forceFill(Arr::except($draft->getAttributes(), self::NON_CONTENT));
+            // Copy the draft's content raw (as replicate() does).
+            // Both rows share the same schema/casts, so the
+            // raw representation transfers verbatim; merging over the canonical's own
+            // attributes preserves its NON_CONTENT (identity/publishing/review) fields.
+            $canonical->setRawAttributes(array_merge(
+                $canonical->getAttributes(),
+                Arr::except($draft->getAttributes(), self::NON_CONTENT)
+            ));
 
             // Preserve the original publish date and track any slug change for redirects.
             if ($canonical->slug !== $previousSlug) {

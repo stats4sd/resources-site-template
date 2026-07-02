@@ -137,7 +137,43 @@ class Trove extends Model implements HasMedia
     /** True while a requested review is still outstanding (requested, not yet completed). */
     protected function reviewInProgress(): Attribute
     {
-        return Attribute::get(fn () => $this->review_requested_at !== null && $this->reviewed_at === null);
+        return Attribute::get(fn () => $this->review_status === ReviewStatus::InReview);
+    }
+
+    /**
+     * DB-side mirror of reviewStatus(): filters to rows resolving to any of the given
+     * ReviewStatus cases, using the SAME precedence as the accessor above (the "not an
+     * outstanding review" guards are what keep the two in lockstep). Kept next to
+     * reviewStatus() on purpose — edit both together, or they drift. See
+     * docs/plans/trove-review-status-parity-test.md for the parity test that locks this.
+     */
+    public function scopeWithReviewStatus(Builder $query, ReviewStatus ...$statuses): Builder
+    {
+        $outstandingReview = fn (Builder $q) => $q
+            ->whereNotNull('review_requested_at')
+            ->whereNull('reviewed_at');
+
+        $predicate = [
+            ReviewStatus::InReview->value => fn (Builder $q) => $q
+                ->where($outstandingReview),
+            ReviewStatus::PublishedWithPendingChanges->value => fn (Builder $q) => $q
+                ->whereNot($outstandingReview)
+                ->whereNotNull('published_id'),
+            ReviewStatus::Published->value => fn (Builder $q) => $q
+                ->whereNot($outstandingReview)
+                ->whereNull('published_id')
+                ->whereNotNull('published_at'),
+            ReviewStatus::Draft->value => fn (Builder $q) => $q
+                ->whereNot($outstandingReview)
+                ->whereNull('published_id')
+                ->whereNull('published_at'),
+        ];
+
+        return $query->where(function (Builder $q) use ($statuses, $predicate) {
+            foreach ($statuses as $status) {
+                $q->orWhere($predicate[$status->value]);
+            }
+        });
     }
 
     /** @return string[] relation names copied between a canonical row and its shadow draft */
