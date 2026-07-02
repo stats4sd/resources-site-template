@@ -150,25 +150,14 @@ class TroveResource extends Resource
                                 ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
                                 ->schema(
                                     collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
-                                        Forms\Components\Group::make([
-                                            Forms\Components\SpatieMediaLibraryFileUpload::make("files_{$locale}")
-                                                ->label($label)
-                                                ->multiple()
-                                                ->reorderable()
-                                                ->downloadable()
-                                                ->preserveFilenames()
-                                                ->collection("content_{$locale}")
-                                                ->disk(config('media-library.disk_name')),
-                                            Forms\Components\TextInput::make("file_name_{$locale}")
-                                                ->label("{$label} file display name")
-                                                ->placeholder('Optional - defaults to filename')
-                                                ->dehydrated(false)
-                                                ->afterStateHydrated(function ($component, $record) use ($locale) {
-                                                    if ($record) {
-                                                        $component->state($record->getMedia("content_{$locale}")->first()?->name);
-                                                    }
-                                                }),
-                                        ])
+                                        Forms\Components\SpatieMediaLibraryFileUpload::make("files_{$locale}")
+                                            ->label($label)
+                                            ->multiple()
+                                            ->reorderable()
+                                            ->downloadable()
+                                            ->preserveFilenames()
+                                            ->collection("content_{$locale}")
+                                            ->disk(config('media-library.disk_name'))
                                     )->values()->all()
                                 ),
 

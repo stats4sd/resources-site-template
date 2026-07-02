@@ -36,17 +36,6 @@ class EditTrove extends EditRecord
         ];
     }
 
-    protected function afterSave(): void
-    {
-        $data = $this->form->getRawState();
-        foreach (array_keys(config('branding.locales', ['en' => 'English'])) as $locale) {
-            $name = $data["file_name_{$locale}"] ?? null;
-            if ($name) {
-                $this->record->getMedia("content_{$locale}")->each(fn ($m) => $m->update(['name' => $name]));
-            }
-        }
-    }
-
     // override the default draftable form actions
     protected function getFormActions(): array
     {
