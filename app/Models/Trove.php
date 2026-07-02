@@ -258,15 +258,71 @@ class Trove extends Model implements HasMedia
         // Get all media files for this locale
         $troveFiles = $this->getMedia($collectionName);
 
-        // Check if there are any files
-        if ($troveFiles->isEmpty()) {
+        // Get external/YouTube links for this locale
+        $links = $this->getDownloadableLinks($locale);
+
+        // Check if there is anything to download
+        if ($troveFiles->isEmpty() && $links->isEmpty()) {
             return redirect()->back()->with('error', __('No downloadable files are available.'));
         }
 
         // Return the ZIP of all files
         $filename = Str::slug($this->title)."-{$locale}-files.zip";
 
-        return MediaStream::create($filename)->addMedia($troveFiles);
+        $mediaStream = MediaStream::create($filename)->addMedia($troveFiles);
+
+        // No links to add, so the plain media stream is sufficient
+        if ($links->isEmpty()) {
+            return $mediaStream;
+        }
+
+        // Otherwise stream the media zip with an extra links manifest file appended
+        $manifest = $this->buildLinksManifest($links);
+
+        return response()->stream(function () use ($mediaStream, $manifest) {
+            $zip = $mediaStream->getZipStream(finish: false);
+            $zip->addFile('links.txt', $manifest);
+            $zip->finish();
+        }, 200, [
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Content-Type' => 'application/octet-stream',
+        ]);
+    }
+
+    protected function getDownloadableLinks(string $locale): \Illuminate\Support\Collection
+    {
+        $externalLinks = $this->getTranslation('external_links', $locale) ?? [];
+        if (isset($externalLinks['link_url'])) {
+            $externalLinks = [$externalLinks];
+        }
+
+        $youtubeLinks = $this->getTranslation('youtube_links', $locale) ?? [];
+        if (isset($youtubeLinks['youtube_id'])) {
+            $youtubeLinks = [$youtubeLinks];
+        }
+
+        $links = collect($externalLinks)
+            ->filter(fn ($link) => ! empty($link['link_url']) && ! empty($link['link_title']))
+            ->map(fn ($link) => ['title' => $link['link_title'], 'url' => $link['link_url']])
+            ->values();
+
+        foreach ($youtubeLinks as $link) {
+            if ($youtubeId = $link['youtube_id'] ?? null) {
+                $links->push([
+                    'title' => 'YouTube video',
+                    'url' => "https://www.youtube.com/watch?v={$youtubeId}",
+                ]);
+            }
+        }
+
+        return $links;
+    }
+
+    protected function buildLinksManifest(\Illuminate\Support\Collection $links): string
+    {
+        return $links
+            ->map(fn ($link) => "{$link['title']}\n{$link['url']}")
+            ->implode("\n\n");
     }
 
     public static function findBySlugOrRedirect($troveKey): ?self
