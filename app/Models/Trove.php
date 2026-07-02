@@ -102,15 +102,6 @@ class Trove extends Model implements HasMedia
     }
 
     /**
-     * Published state is derived from published_at (there is no is_published column).
-     * Read-only: to publish/unpublish, set published_at via App\Services\TrovePublisher.
-     */
-    protected function isPublished(): Attribute
-    {
-        return Attribute::get(fn () => $this->published_at !== null);
-    }
-
-    /**
      * The PUBLICATION axis of this working row (orthogonal to reviewState()). Derived from
      * published_at / published_id ALONE — no review information, no cross-axis precedence.
      * A shadow draft of a live row (published_id set) is PendingChanges regardless of
@@ -129,33 +120,6 @@ class Trove extends Model implements HasMedia
 
             return PublicationState::Draft;
         });
-    }
-
-    /**
-     * The REVIEW axis of this working row (orthogonal to publicationState()). Derived from
-     * the review columns ALONE. reviewed_at wins over a lingering review_requested_at
-     * (precedence WITHIN this axis only — completeReview()/requestReview() keep them
-     * consistent anyway).
-     */
-    protected function reviewState(): Attribute
-    {
-        return Attribute::get(function (): ReviewState {
-            if ($this->reviewed_at !== null) {
-                return ReviewState::Reviewed;
-            }
-
-            if ($this->review_requested_at !== null) {
-                return ReviewState::InReview;
-            }
-
-            return ReviewState::None;
-        });
-    }
-
-    /** True while a requested review is still outstanding (requested, not yet completed). */
-    protected function reviewInProgress(): Attribute
-    {
-        return Attribute::get(fn () => $this->review_state === ReviewState::InReview);
     }
 
     /**
@@ -186,6 +150,27 @@ class Trove extends Model implements HasMedia
     }
 
     /**
+     * The REVIEW axis of this working row (orthogonal to publicationState()). Derived from
+     * the review columns ALONE. reviewed_at wins over a lingering review_requested_at
+     * (precedence WITHIN this axis only — completeReview()/requestReview() keep them
+     * consistent anyway).
+     */
+    protected function reviewState(): Attribute
+    {
+        return Attribute::get(function (): ReviewState {
+            if ($this->reviewed_at !== null) {
+                return ReviewState::Reviewed;
+            }
+
+            if ($this->review_requested_at !== null) {
+                return ReviewState::InReview;
+            }
+
+            return ReviewState::None;
+        });
+    }
+
+    /**
      * DB-side mirror of reviewState(): filters to rows resolving to any of the given
      * ReviewState cases. Single-axis — reviewed_at decides Reviewed vs the rest, then
      * review_requested_at decides InReview vs None. No cross-axis (publication) guards.
@@ -210,6 +195,22 @@ class Trove extends Model implements HasMedia
             }
         });
     }
+
+    /** True while a requested review is still outstanding (requested, not yet completed). */
+    protected function reviewInProgress(): Attribute
+    {
+        return Attribute::get(fn () => $this->review_state === ReviewState::InReview);
+    }
+
+    /**
+     * Published state is derived from published_at (there is no is_published column).
+     * Read-only: to publish/unpublish, set published_at via App\Services\TrovePublisher.
+     */
+    protected function isPublished(): Attribute
+    {
+        return Attribute::get(fn () => $this->published_at !== null);
+    }
+
 
     /** @return string[] relation names copied between a canonical row and its shadow draft */
     public function getDraftableRelations(): array

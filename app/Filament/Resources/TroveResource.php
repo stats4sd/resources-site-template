@@ -364,18 +364,16 @@ class TroveResource extends Resource
             TextColumn::make('publication_state')
                 ->label('Status')
                 ->badge()
-                ->description(fn(Trove $record) => $record->reviewed_at
-                    ? '✓ reviewed by ' . ($record->reviewer?->name ?? 'unknown')
-                    : null),
+                ,
             // The review facet: an "In review" chip while a review is outstanding. The
             // completed-review fact is surfaced by the description line above, so this
             // cell is intentionally empty for None / Reviewed.
             TextColumn::make('review_state')
                 ->label('Review')
                 ->badge()
-                ->getStateUsing(fn(Trove $record) => $record->review_state === ReviewState::InReview
-                    ? $record->review_state
-                    : null),
+                ->description(fn(Trove $record): string => $record->review_state === ReviewState::Reviewed
+                    ? 'by ' . ($record->reviewer?->name ?? 'unknown')
+                    : ''),
             SpatieMediaLibraryImageColumn::make('cover_image')
                 ->collection(fn(Component $livewire) => 'cover_image_' . $livewire->activeLocale),
             TextColumn::make('created_at')
