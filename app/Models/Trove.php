@@ -196,12 +196,6 @@ class Trove extends Model implements HasMedia
         });
     }
 
-    /** True while a requested review is still outstanding (requested, not yet completed). */
-    protected function reviewInProgress(): Attribute
-    {
-        return Attribute::get(fn () => $this->review_state === ReviewState::InReview);
-    }
-
     /**
      * Published state is derived from published_at (there is no is_published column).
      * Read-only: to publish/unpublish, set published_at via App\Services\TrovePublisher.

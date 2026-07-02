@@ -142,7 +142,7 @@ class TrovePublisher
         DB::transaction(fn () => $this->deleteDraftRow($draft));
     }
 
-    /** Remove a canonical row from the public site without deleting it (documented Unpublish). */
+    /** Remove a canonical row from the public site without deleting it. */
     public function unpublish(Trove $canonical): void
     {
         $canonical->published_at = null;

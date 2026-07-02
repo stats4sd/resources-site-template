@@ -49,7 +49,7 @@ class TroveResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withoutGlobalScope(PublishedScope::class);
+        return parent::getEloquentQuery()->workingVersions();
     }
 
     public static function getRecordTitleAttribute(): ?string

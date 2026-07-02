@@ -67,9 +67,9 @@ class EditTrove extends EditRecord
                 ->label('Unpublish')
                 ->icon('heroicon-o-eye-slash')
                 ->color('warning')
-                ->visible(fn (Trove $record) => $record->publication_state === PublicationState::PendingChanges)
+                ->visible(fn (Trove $record) => $record->publication_state === PublicationState::PendingChanges || PublicationState::Published)
                 ->requiresConfirmation()
-                ->modalDescription('This removes the trove from the public site (and discards any draft changes). It is not deleted.')
+                ->modalDescription('This removes the trove from the public site. It is not deleted.')
                 ->action(function (Trove $record) {
                     app(TrovePublisher::class)->unpublish($record->publishedVersion);
                     Notification::make()->title('Trove unpublished')->success()->send();
