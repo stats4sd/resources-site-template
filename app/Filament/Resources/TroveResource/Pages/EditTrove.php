@@ -2,7 +2,8 @@
 
 namespace App\Filament\Resources\TroveResource\Pages;
 
-use App\Enums\ReviewStatus;
+use App\Enums\ReviewState;
+use App\Enums\PublicationState;
 use App\Filament\Resources\TroveResource;
 use App\Filament\Resources\TroveResource\Concerns\HasTroveFormActions;
 use App\Models\Trove;
@@ -40,7 +41,7 @@ class EditTrove extends EditRecord
                 ->label('Mark as reviewed')
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
-                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::InReview)
+                ->visible(fn (Trove $record) => $record->review_state === ReviewState::InReview)
                 ->requiresConfirmation()
                 ->modalDescription('This records that you have reviewed and approved this trove. It does not publish it.')
                 ->action(function (Trove $record) {
@@ -53,7 +54,7 @@ class EditTrove extends EditRecord
                 ->label('Discard draft changes')
                 ->icon('heroicon-o-arrow-uturn-left')
                 ->color('gray')
-                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::PublishedWithPendingChanges)
+                ->visible(fn (Trove $record) => $record->publication_state === PublicationState::PendingChanges)
                 ->requiresConfirmation()
                 ->modalDescription('This discards the unpublished changes and keeps the live version as it is.')
                 ->action(function (Trove $record) {
@@ -66,7 +67,7 @@ class EditTrove extends EditRecord
                 ->label('Unpublish')
                 ->icon('heroicon-o-eye-slash')
                 ->color('warning')
-                ->visible(fn (Trove $record) => $record->review_status === ReviewStatus::PublishedWithPendingChanges)
+                ->visible(fn (Trove $record) => $record->publication_state === PublicationState::PendingChanges)
                 ->requiresConfirmation()
                 ->modalDescription('This removes the trove from the public site (and discards any draft changes). It is not deleted.')
                 ->action(function (Trove $record) {
@@ -103,7 +104,7 @@ class EditTrove extends EditRecord
     protected function shouldForkOnSave(Model $record): bool
     {
         return ! $this->shouldPublish
-            && $record->review_status === ReviewStatus::Published;
+            && $record->publication_state === PublicationState::Published;
     }
 
     protected function afterSave(): void

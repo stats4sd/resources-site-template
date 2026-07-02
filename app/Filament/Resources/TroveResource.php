@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Models\Tag;
+use App\Enums\ReviewState;
 use Filament\Forms;
 use Filament\Tables;
 use App\Models\Trove;
@@ -357,13 +358,23 @@ class TroveResource extends Resource
             TextColumn::make('title')
                 ->wrap()
                 ->sortable(query: fn(Builder $query, $direction) => $query->orderBy('title->' . app()->currentLocale(), $direction)),
-            // At-a-glance lifecycle state (single source of truth: Trove::reviewStatus()),
-            // with the orthogonal "✓ reviewed by X" stamp shown beneath it when present.
-            TextColumn::make('review_status')
+            // The two orthogonal lifecycle facets, shown side by side (never flattened):
+            // the publication state is the primary badge, carrying the "✓ reviewed by X"
+            // stamp beneath it when a review has been completed (Trove::publicationState()).
+            TextColumn::make('publication_state')
                 ->label('Status')
                 ->badge()
                 ->description(fn(Trove $record) => $record->reviewed_at
                     ? '✓ reviewed by ' . ($record->reviewer?->name ?? 'unknown')
+                    : null),
+            // The review facet: an "In review" chip while a review is outstanding. The
+            // completed-review fact is surfaced by the description line above, so this
+            // cell is intentionally empty for None / Reviewed.
+            TextColumn::make('review_state')
+                ->label('Review')
+                ->badge()
+                ->getStateUsing(fn(Trove $record) => $record->review_state === ReviewState::InReview
+                    ? $record->review_state
                     : null),
             SpatieMediaLibraryImageColumn::make('cover_image')
                 ->collection(fn(Component $livewire) => 'cover_image_' . $livewire->activeLocale),

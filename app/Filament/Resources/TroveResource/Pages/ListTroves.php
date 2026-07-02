@@ -2,7 +2,8 @@
 
 namespace App\Filament\Resources\TroveResource\Pages;
 
-use App\Enums\ReviewStatus;
+use App\Enums\ReviewState;
+use App\Enums\PublicationState;
 use App\Filament\Resources\TroveResource;
 use App\Models\Trove;
 use Filament\Actions;
@@ -38,30 +39,33 @@ class ListTroves extends ListRecords
                 ->label(__('All'))
                 ->modifyQueryUsing(fn (Builder $query) => $query->workingVersions()),
             // Working versions still being drafted: never-published drafts and unpublished
-            // edits to a live row (pending changes), excluding anything under review.
+            // edits to a live row (pending changes), that are not currently in review.
+            // Composed from the two explicit axes — publication (Draft or PendingChanges)
+            // and review (anything except an outstanding review).
             'drafts' => Tab::make()
                 ->label(__('Drafts'))
                 ->modifyQueryUsing(fn (Builder $query) => $query
                     ->workingVersions()
-                    ->withReviewStatus(ReviewStatus::Draft, ReviewStatus::PublishedWithPendingChanges)),
-            // Working versions with a review currently outstanding.
+                    ->withPublicationState(PublicationState::Draft, PublicationState::PendingChanges)
+                    ->withReviewState(ReviewState::None, ReviewState::Reviewed)),
+            // Working versions with a review currently outstanding (pure review axis).
             'in_review' => Tab::make()
                 ->label(__('In review'))
                 ->modifyQueryUsing(fn (Builder $query) => $query
                     ->workingVersions()
-                    ->withReviewStatus(ReviewStatus::InReview)),
+                    ->withReviewState(ReviewState::InReview)),
             // The current user's personal queue of reviews to action.
             'needs_my_review' => Tab::make()
                 ->label(__('Needs my review'))
                 ->badge($needsMyReview ?: null)
                 ->modifyQueryUsing(fn (Builder $query) => $query->awaitingReviewBy(auth()->id())),
             // Working versions of live troves: the live row itself, and any pending-changes
-            // draft of one. A draft currently InReview is intentionally excluded (for now).
+            // draft of one (pure publication axis — a draft under review still counts).
             'published' => Tab::make()
                 ->label(__('Published'))
                 ->modifyQueryUsing(fn (Builder $query) => $query
                     ->workingVersions()
-                    ->withReviewStatus(ReviewStatus::Published, ReviewStatus::PublishedWithPendingChanges)),
+                    ->withPublicationState(PublicationState::Published, PublicationState::PendingChanges)),
         ];
     }
 }

@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use Carbon\Carbon;
-use App\Enums\ReviewStatus;
+use App\Enums\ReviewState;
+use App\Enums\PublicationState;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
 use App\Models\Scopes\PublishedScope;
@@ -110,68 +111,102 @@ class Trove extends Model implements HasMedia
     }
 
     /**
-     * The single source of truth for this working row's lifecycle state. Derived by
-     * precedence (the actionable state wins): an outstanding review beats everything,
-     * then shadow-draft-of-a-live-row, then live, then never-published. reviewed_at is
-     * intentionally NOT part of this — it is rendered as an orthogonal "✓ reviewed" mark.
+     * The PUBLICATION axis of this working row (orthogonal to reviewState()). Derived from
+     * published_at / published_id ALONE — no review information, no cross-axis precedence.
+     * A shadow draft of a live row (published_id set) is PendingChanges regardless of
+     * whether a review is outstanding on it.
      */
-    protected function reviewStatus(): Attribute
+    protected function publicationState(): Attribute
     {
-        return Attribute::get(function (): ReviewStatus {
-            if ($this->review_requested_at !== null && $this->reviewed_at === null) {
-                return ReviewStatus::InReview;
-            }
-
+        return Attribute::get(function (): PublicationState {
             if ($this->published_id !== null) {
-                return ReviewStatus::PublishedWithPendingChanges;
+                return PublicationState::PendingChanges;
             }
 
             if ($this->published_at !== null) {
-                return ReviewStatus::Published;
+                return PublicationState::Published;
             }
 
-            return ReviewStatus::Draft;
+            return PublicationState::Draft;
+        });
+    }
+
+    /**
+     * The REVIEW axis of this working row (orthogonal to publicationState()). Derived from
+     * the review columns ALONE. reviewed_at wins over a lingering review_requested_at
+     * (precedence WITHIN this axis only — completeReview()/requestReview() keep them
+     * consistent anyway).
+     */
+    protected function reviewState(): Attribute
+    {
+        return Attribute::get(function (): ReviewState {
+            if ($this->reviewed_at !== null) {
+                return ReviewState::Reviewed;
+            }
+
+            if ($this->review_requested_at !== null) {
+                return ReviewState::InReview;
+            }
+
+            return ReviewState::None;
         });
     }
 
     /** True while a requested review is still outstanding (requested, not yet completed). */
     protected function reviewInProgress(): Attribute
     {
-        return Attribute::get(fn () => $this->review_status === ReviewStatus::InReview);
+        return Attribute::get(fn () => $this->review_state === ReviewState::InReview);
     }
 
     /**
-     * DB-side mirror of reviewStatus(): filters to rows resolving to any of the given
-     * ReviewStatus cases, using the SAME precedence as the accessor above (the "not an
-     * outstanding review" guards are what keep the two in lockstep). Kept next to
-     * reviewStatus() on purpose — edit both together, or they drift. See
+     * DB-side mirror of publicationState(): filters to rows resolving to any of the given
+     * PublicationState cases. Single-axis — each case maps to a plain predicate on
+     * published_id / published_at, with no cross-axis (review) guards. Kept next to
+     * publicationState() on purpose — edit both together, or they drift. See
      * docs/plans/trove-review-status-parity-test.md for the parity test that locks this.
      */
-    public function scopeWithReviewStatus(Builder $query, ReviewStatus ...$statuses): Builder
+    public function scopeWithPublicationState(Builder $query, PublicationState ...$states): Builder
     {
-        $outstandingReview = fn (Builder $q) => $q
-            ->whereNotNull('review_requested_at')
-            ->whereNull('reviewed_at');
-
         $predicate = [
-            ReviewStatus::InReview->value => fn (Builder $q) => $q
-                ->where($outstandingReview),
-            ReviewStatus::PublishedWithPendingChanges->value => fn (Builder $q) => $q
-                ->whereNot($outstandingReview)
+            PublicationState::PendingChanges->value => fn (Builder $q) => $q
                 ->whereNotNull('published_id'),
-            ReviewStatus::Published->value => fn (Builder $q) => $q
-                ->whereNot($outstandingReview)
+            PublicationState::Published->value => fn (Builder $q) => $q
                 ->whereNull('published_id')
                 ->whereNotNull('published_at'),
-            ReviewStatus::Draft->value => fn (Builder $q) => $q
-                ->whereNot($outstandingReview)
+            PublicationState::Draft->value => fn (Builder $q) => $q
                 ->whereNull('published_id')
                 ->whereNull('published_at'),
         ];
 
-        return $query->where(function (Builder $q) use ($statuses, $predicate) {
-            foreach ($statuses as $status) {
-                $q->orWhere($predicate[$status->value]);
+        return $query->where(function (Builder $q) use ($states, $predicate) {
+            foreach ($states as $state) {
+                $q->orWhere($predicate[$state->value]);
+            }
+        });
+    }
+
+    /**
+     * DB-side mirror of reviewState(): filters to rows resolving to any of the given
+     * ReviewState cases. Single-axis — reviewed_at decides Reviewed vs the rest, then
+     * review_requested_at decides InReview vs None. No cross-axis (publication) guards.
+     * Kept next to reviewState() on purpose — edit both together, or they drift.
+     */
+    public function scopeWithReviewState(Builder $query, ReviewState ...$states): Builder
+    {
+        $predicate = [
+            ReviewState::Reviewed->value => fn (Builder $q) => $q
+                ->whereNotNull('reviewed_at'),
+            ReviewState::InReview->value => fn (Builder $q) => $q
+                ->whereNull('reviewed_at')
+                ->whereNotNull('review_requested_at'),
+            ReviewState::None->value => fn (Builder $q) => $q
+                ->whereNull('reviewed_at')
+                ->whereNull('review_requested_at'),
+        ];
+
+        return $query->where(function (Builder $q) use ($states, $predicate) {
+            foreach ($states as $state) {
+                $q->orWhere($predicate[$state->value]);
             }
         });
     }

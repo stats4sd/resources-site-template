@@ -2,6 +2,8 @@
 
 **Status:** Completed — see [docs/change-logs/trove-review-state-and-workflow.md](../change-logs/trove-review-state-and-workflow.md).
 
+> **Refined by [docs/plans/trove-split-publication-and-review-axes.md](trove-split-publication-and-review-axes.md).** This plan introduced a single fused `ReviewStatus` enum as the working row's lifecycle state. That enum tangles two orthogonal axes (publication and review); the follow-up plan splits them into `PublicationState` + `ReviewState`. Treat the `ReviewStatus` / `reviewStatus()` / `scopeWithReviewStatus` design described below as superseded by that split.
+
 ## Context
 
 This is the deferred follow-up promised by [docs/plans/remove-laravel-drafts-single-shadow-draft.md](remove-laravel-drafts-single-shadow-draft.md) (Decision 3: "defer the review-state enum + notifications") and directly addresses points **2.1, 2.2, 2.3** and bug **1.7** of [docs/from-original-app/trove-review-system.md](../from-original-app/trove-review-system.md). The drafts-removal work left the lifecycle running on an app-owned published + single-shadow-draft model, but "review" is still an *inferred* state: it is read off `checker_id`/`requester_id` combinations with no single source of truth, the language is split between "Check" and "Review", there is no record that a review was actually *completed* (1.7), and the Check step is a radio + three visibility-toggled fieldsets that juggle stale `$record` state (1.4) rather than explicit actions.
