@@ -21,23 +21,6 @@ class EditTrove extends EditRecord
     protected static string $resource = TroveResource::class;
     public static string|Alignment $formActionsAlignment = Alignment::End;
 
-    /**
-     * Editing a live Trove must not disturb the public copy, so the moment a published
-     * canonical row is opened we fork (or reuse) its single shadow draft and edit that
-     * instead. From then on every field, relation and media edit targets the draft row.
-     */
-    public function mount($record): void
-    {
-        parent::mount($record);
-
-        $trove = $this->getRecord();
-
-        if ($trove->review_status === ReviewStatus::Published) {
-            $draft = app(TrovePublisher::class)->draftFor($trove);
-            $this->redirect(TroveResource::getUrl('edit', ['record' => $draft->getKey()]));
-        }
-    }
-
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -98,9 +81,29 @@ class EditTrove extends EditRecord
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
+        // A live canonical only forks a shadow draft on the first save that actually
+        // persists edits — opening the edit page no longer mutates state. Re-point
+        // $this->record so Filament's relation/media persistence lands on the draft.
+        if ($this->shouldForkOnSave($record)) {
+            $record = app(TrovePublisher::class)->draftFor($record);
+            $this->record = $record;
+        }
+
         $record->update($data);
 
         return $record;
+    }
+
+    /**
+     * Fork a shadow draft on save only when editing a live canonical without publishing:
+     * Save draft and Request review must capture pending edits on the draft, never the
+     * live copy. Publish (shouldPublish) folds straight back into the canonical, so
+     * forking would be throwaway churn — publish in place instead.
+     */
+    protected function shouldForkOnSave(Model $record): bool
+    {
+        return ! $this->shouldPublish
+            && $record->review_status === ReviewStatus::Published;
     }
 
     protected function afterSave(): void

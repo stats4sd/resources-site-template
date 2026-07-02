@@ -1,6 +1,6 @@
 # Plan: Defer shadow-draft creation until a live Trove is actually edited
 
-**Status:** Not Started
+**Status:** Completed — see [change log](../change-logs/trove-defer-shadow-draft-until-edit.md).
 
 ## Problem
 
