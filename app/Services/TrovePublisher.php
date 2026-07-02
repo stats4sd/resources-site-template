@@ -61,31 +61,31 @@ class TrovePublisher
      *   draft row is discarded.
      * - Never-published canonical: published in place.
      */
-    public function publish(Trove $trove): Trove
+    public function publish(Trove $draft): Trove
     {
         // Never-published canonical: publish in place and clear review fields.
-        if ($trove->published_id === null) {
+        if ($draft->published_id === null) {
 
-            return DB::transaction(function () use ($trove) {
-                if ($trove->published_at === null) {
-                    $trove->published_at = now();
+            return DB::transaction(function () use ($draft) {
+                if ($draft->published_at === null) {
+                    $draft->published_at = now();
                 }
-                $trove->checker_id = null;
-                $trove->requester_id = null;
-                $trove->save();
+                $draft->checker_id = null;
+                $draft->requester_id = null;
+                $draft->save();
 
-                return $trove;
+                return $draft;
             });
         }
 
         // A shadow draft: fold it onto its canonical.
-        return DB::transaction(function () use ($trove) {
+        return DB::transaction(function () use ($draft) {
             /** @var Trove $canonical */
-            $canonical = $trove->publishedVersion()->firstOrFail();
+            $canonical = $draft->publishedVersion()->firstOrFail();
 
             $previousSlug = $canonical->slug;
 
-            $canonical->forceFill(Arr::except($trove->getAttributes(), self::NON_CONTENT));
+            $canonical->forceFill(Arr::except($draft->getAttributes(), self::NON_CONTENT));
 
             // Preserve the original publish date and track any slug change for redirects.
             if ($canonical->slug !== $previousSlug) {
@@ -100,10 +100,10 @@ class TrovePublisher
             $canonical->requester_id = null;
             $canonical->save();
 
-            $this->copyRelations($trove, $canonical);
-            $this->copyMedia($trove, $canonical, replace: true);
+            $this->copyRelations($draft, $canonical);
+            $this->copyMedia($draft, $canonical, replace: true);
 
-            $this->deleteDraftRow($trove);
+            $this->deleteDraftRow($draft);
 
             return $canonical->refresh();
         });
