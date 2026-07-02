@@ -14,7 +14,6 @@
         "filament/filament": "^3.2",
         "filament/spatie-laravel-media-library-plugin": "^3.2",
         "filament/spatie-laravel-translatable-plugin": "^3.2",
-        "guava/filament-drafts": "dev-main",
         "guzzlehttp/guzzle": "^7.2",
         "http-interop/http-factory-guzzle": "^1.2",
         "kainiklas/filament-scout": "^0.4.0",
@@ -89,22 +88,6 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
-        }
-    },
-    "repositories": {
-        "guava/filament-drafts": {
-            "type": "path",
-            "url": "./packages/filament-drafts",
-            "options": {
-                "symlink": true
-            }
-        },
-        "odd-value/laravel-drafts": {
-            "type": "path",
-            "url": "./packages/laravel-drafts",
-            "options": {
-                "symlink": true
-            }
         }
     },
     "minimum-stability": "dev",

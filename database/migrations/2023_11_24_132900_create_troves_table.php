@@ -29,7 +29,14 @@ return new class extends Migration
 
             $table->integer('download_count')->default(0);
 
-            $table->drafts();
+            // Publishing / single-shadow-draft model (app-owned; replaces oddvalue/laravel-drafts).
+            // published_at is the sole source of truth for "is this published": NULL = not published.
+            // published_id links a shadow draft row to its canonical published row (NULL on canonical rows).
+            $table->timestamp('published_at')->nullable();
+            $table->foreignId('published_id')->nullable()->constrained('troves')->cascadeOnDelete();
+            $table->unique('published_id');
+            $table->index('published_at');
+
             $table->foreignId('requester_id')->nullable()->constrained('users')->cascadeOnUpdate()->nullOnDelete();
             $table->foreignId('checker_id')->nullable()->constrained('users')->cascadeOnUpdate()->nullOnDelete();
 

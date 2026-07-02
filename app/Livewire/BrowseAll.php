@@ -53,7 +53,7 @@ class BrowseAll extends Component
 
     public function fetchInitialData()
     {
-        $this->resources = Trove::with(['troveTypes', 'themeAndTopicTags'])->where('is_published', 1)->get();
+        $this->resources = Trove::with(['troveTypes', 'themeAndTopicTags'])->whereNotNull('published_at')->get();
         $this->collections = Collection::where('public', 1)->get();
         $this->mergeItems();
     }
@@ -69,7 +69,7 @@ class BrowseAll extends Component
     public function search()
     {
         // Fetch Resources (Trove)
-        $resourceQuery = Trove::query()->where('is_published', 1);
+        $resourceQuery = Trove::query()->whereNotNull('published_at');
         $resourceHits = [];
 
         if (!empty($this->query)) {

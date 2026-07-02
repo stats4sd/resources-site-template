@@ -115,8 +115,7 @@ class ExampleDataSeeder extends Seeder
                 $trove->source         = false;
                 $trove->creation_date  = '2024-01-01';
                 $trove->uploader_id    = $user->id;
-                $trove->is_published   = true;
-                $trove->is_current     = true;
+                $trove->published_at   = now();
                 $trove->save();
 
                 if ($troveType) {

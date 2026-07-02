@@ -26,17 +26,16 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Concerns\Translatable;
 use App\Filament\Resources\TroveResource\Pages;
+use App\Models\Scopes\PublishedScope;
 use Kainiklas\FilamentScout\Traits\InteractsWithScout;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
-use Guava\FilamentDrafts\Admin\Resources\Concerns\Draftable;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
-use App\Filament\Draftable\Forms\Components\Actions\SaveDraftFormAction;
+use App\Filament\Forms\Components\Actions\SaveDraftFormAction;
 
 class TroveResource extends Resource
 {
     use Translatable;
-    use Draftable;
     use InteractsWithScout;
 
     protected static ?string $model = Trove::class;
@@ -44,6 +43,15 @@ class TroveResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
 
     protected static int $globalSearchResultsLimit = 100;
+
+    /**
+     * The admin manages every version, so opt out of the public PublishedScope.
+     * List tabs and edit-record resolution then narrow this to working versions.
+     */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->withoutGlobalScope(PublishedScope::class);
+    }
 
     public static function getRecordTitleAttribute(): ?string
     {
@@ -232,8 +240,8 @@ class TroveResource extends Resource
                                 ->content(new HtmlString(
                                     '
 <h4 class="text-lg mb-2">Review and Publish</h4>
-<p>Once the trove is ready to be published, we recommend that you invite someone to check it over, to catch any issues. Please ask for a review from one of the team using the form below.</p>
-<p>If you are happy with the trove, you can publish it immediately by clicking the <b>Publish</b> button below. A notification will be sent to the resources team to let them know so it can be checked on the live site.</p>'
+<p>Once the trove is ready to be published, we recommend that you invite someone to check it over, to catch any issues. Requesting a review records who you asked, and the trove appears in the <b>Check Requested</b> tab of the trove list for the team to pick up.</p>
+<p>If you are happy with the trove, you can publish it immediately by clicking the <b>Publish</b> button below to make it live on the site.</p>'
                                 ))
                                 ->type('info'),
 
@@ -273,10 +281,8 @@ class TroveResource extends Resource
                                         ->visible(fn(Forms\Get $get) => $get('next_steps') === 'review')
                                         ->schema([
 
-                                            // If the user requests a check, update the requester_id. Otherwise, leave as-is
-                                            Forms\Components\Hidden::make('requester_id')
-                                                ->formatStateUsing(fn(?Trove $record, Forms\Get $get) => $get('checker_id') ? auth()->id() : $record?->requester_id),
-
+                                            // requester_id is stamped in the page's save handler
+                                            // (auth id when a checker is chosen) — not derived here.
                                             Forms\Components\Select::make('checker_id')
                                                 ->label('Select the person to ask')
                                                 ->relationship('checker', 'name')
@@ -294,11 +300,11 @@ class TroveResource extends Resource
                                         ->visible(fn(Forms\Get $get) => $get('next_steps') === 'publish')
                                         ->schema([
                                             Shout::make('publish_it')
-                                                ->content(new HtmlString('Publish the trove with the current changes. This will make it live on the site. A notification will be sent to the resources team to let them know so it can be checked on the live site. Use the "Save and Publish" button below')),
+                                                ->content(new HtmlString('Publish the trove with the current changes. This will make it live on the site. Use the "Save and Publish" button below')),
 
                                             Shout::make('are_you_sure')
                                                 ->type('warning')
-                                                ->visible(fn(?Trove $record) => !$record?->checker_id)
+                                                ->visible(fn(Forms\Get $get) => !$get('checker_id'))
                                                 ->content(new HtmlString('It looks like no-one has been asked to check this trove. Are you sure you want to publish it?')),
 
                                             Shout::make('are_you_sure_again')
@@ -309,7 +315,7 @@ class TroveResource extends Resource
                                             Forms\Components\Checkbox::make('should_publish')
                                                 ->dehydrated(false)
                                                 ->label('I am sure I want to publish this trove')
-                                                ->visible(fn(?Trove $record) => !$record?->checker_id || $record?->requester_id === auth()->id())
+                                                ->visible(fn(?Trove $record, Forms\Get $get) => !$get('checker_id') || $record?->requester_id === auth()->id())
                                                 ->live()
                                                 ->required(),
 
@@ -317,9 +323,9 @@ class TroveResource extends Resource
                                             Forms\Components\Actions::make([
                                                 Forms\Components\Actions\Action::make('Save and Publish')
                                                     ->label(fn(?Trove $record) => $record?->has_published_version ? __('Save and Publish Changes') : __('Save and Publish'))
-                                                    ->disabled(fn(?Trove $record, Forms\Get $get) => !$record?->checker_id && !$get('should_publish'))
+                                                    ->disabled(fn(Forms\Get $get) => !$get('checker_id') && !$get('should_publish'))
                                                     ->action(function ($livewire) {
-                                                        $livewire->shouldSaveAsDraft = false;
+                                                        $livewire->shouldPublish = true;
 
                                                         if ($livewire instanceof CreateRecord) {
                                                             $livewire->create();
