@@ -213,7 +213,7 @@
                 @endforeach
             </div>
 
-            @if($mediaFiles->isNotEmpty())
+            @if($downloadItems->isNotEmpty() || $youtubeLinks)
                 <div class="flex justify-end mt-6">
                     <a href="{{ route('trove.download.zip', ['slug' => $resource->slug]) }}"
                         class="flex items-center gap-2 bg-brand-primary text-white font-semibold uppercase tracking-wide text-sm px-6 py-3 rounded-full hover:opacity-90 transition">
