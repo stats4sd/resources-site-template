@@ -1,6 +1,6 @@
 # Plan: Fix `unpublish` so it collapses a pending-changes trove to a single canonical Draft
 
-**Status:** Not Started
+**Status:** Completed. See [docs/change-logs/fix-unpublish-pending-changes-orphan-draft.md](../change-logs/fix-unpublish-pending-changes-orphan-draft.md).
 
 Fixes code-review finding #2 ([docs/code-reviews/trove-review-update.md](../code-reviews/trove-review-update.md)): unpublishing a `PendingChanges` trove leaves an orphaned shadow draft. It also closes the null-pointer hole that finding #3's fix exposed: the `unpublish` action is now visible for a cleanly `Published` trove, but the action passes `$record->publishedVersion` — which is `null` when `$record` is itself the canonical.
 

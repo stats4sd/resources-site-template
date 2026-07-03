@@ -228,11 +228,23 @@ class TrovePublisher
         });
     }
 
-    /** Remove a canonical row from the public site without deleting it. */
+    /**
+     * Remove a canonical row from the public site without deleting it. If the canonical
+     * has a shadow draft, its pending edits are folded onto the canonical first (and the
+     * draft row discarded) so unpublish always leaves a single row, never an orphan draft
+     * pointing at an unpublished parent.
+     */
     public function unpublish(Trove $canonical): void
     {
-        $canonical->published_at = null;
-        $canonical->save();
+        DB::transaction(function () use ($canonical) {
+            if ($draft = $canonical->draft()->first()) {
+                $this->publish($draft);   // copies content/relations/media onto canonical, deletes draft
+                $canonical->refresh();    // publish() mutated a *different* instance (draft->publishedVersion)
+            }
+
+            $canonical->published_at = null;
+            $canonical->save();
+        });
     }
 
     /**
