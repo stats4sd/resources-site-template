@@ -34,4 +34,4 @@ Search is powered by Meilisearch. If you don't need search locally, you can disa
 To run Meilisearch locally:
 
 1. Install Meilisearch - instructions [here](https://www.meilisearch.com/docs/learn/getting_started/installation).
-2. Run `./meilisearch --master-key="aSampleMasterKey"` — keep this running in a separate terminal window.
+2. Run `./meilisearch --master-key="aSampleMasterKey"` - keep this running in a separate terminal window.

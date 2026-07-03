@@ -24,7 +24,7 @@ enum PublicationState: string implements HasColor, HasIcon, HasLabel
         return match ($this) {
             self::Draft => __('Draft'),
             self::Published => __('Published'),
-            self::PendingChanges => __('Published — pending changes'),
+            self::PendingChanges => __('Published - pending changes'),
         };
     }
 

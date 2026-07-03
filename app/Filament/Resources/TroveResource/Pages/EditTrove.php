@@ -187,7 +187,7 @@ class EditTrove extends EditRecord
             }
 
             Notification::make()
-                ->title('Could not save — another editor got there first')
+                ->title('Could not save - another editor got there first')
                 ->body('Someone else has just started editing this trove. To avoid overwriting their changes your edit was not saved. Reload the page and try again.')
                 ->danger()
                 ->persistent()

@@ -63,7 +63,7 @@ trait HasTroveFormActions
             ->icon('heroicon-m-clipboard-document-check')
             ->color('info')
             ->modalHeading(__('Request a review'))
-            ->modalDescription(__('Two pairs of eyes are better than one. Pick someone to review this trove — it appears in their "Needs my review" queue.'))
+            ->modalDescription(__('Two pairs of eyes are better than one. Pick someone to review this trove - it appears in their "Needs my review" queue.'))
             ->form([
                 Select::make('reviewer_id')
                     ->label(__('Who should review this?'))
@@ -89,7 +89,7 @@ trait HasTroveFormActions
             ->modalHeading(fn () => $this->publishLabel())
             ->modalDescription(fn () => $this->reviewedAlready()
                 ? __('This trove has been reviewed. Publish it to the live site?')
-                : __('No one has reviewed this trove yet. We recommend a review — but you can publish anyway if you are confident.'))
+                : __('No one has reviewed this trove yet. We recommend a review - but you can publish anyway if you are confident.'))
             // When unreviewed, require an explicit "publish without a review" confirmation;
             // when reviewed, a plain confirm. Publish is never blocked (optionality).
             ->form(fn () => $this->reviewedAlready() ? [] : [

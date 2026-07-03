@@ -228,7 +228,7 @@ class TroveResource extends Resource
                                 ->content(new HtmlString(
                                     '
 <h4 class="text-lg mb-2">Review and publish</h4>
-<p>Two pairs of eyes are better than one: we recommend inviting someone to review the trove before it goes live. Use <b>Request review</b> below to pick a reviewer — it then appears in their <b>Needs my review</b> queue and in the <b>In review</b> tab of the trove list.</p>
+<p>Two pairs of eyes are better than one: we recommend inviting someone to review the trove before it goes live. Use <b>Request review</b> below to pick a reviewer - it then appears in their <b>Needs my review</b> queue and in the <b>In review</b> tab of the trove list.</p>
 <p>Reviewing is optional. When you are happy, use <b>Publish</b> below to make the trove live. You can save your work at any time with <b>Save draft</b>.</p>'
                                 ))
                                 ->type('info'),
