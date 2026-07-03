@@ -29,8 +29,8 @@ A generalised, white-label Laravel template for building a "resources library" s
 - **Meilisearch** via Laravel Scout — full-text search
 - **Spatie Media Library** — per-locale file/media management
 - **Spatie Translatable** — multilingual content (JSON columns; locales configured per-site, not hardcoded)
-- **MySQL** — primary database (tests also run against MySQL — SQLite in-memory is commented out in `phpunit.xml`)
-- Three local git submodules under `packages/`: `laravel-drafts`, `filament-drafts`, `filament-scout` (own forks, loaded as Composer path repos)
+- **MySQL** — primary database. Tests target SQLite `:memory:` (see the Testing section) but the app runs on MySQL, and a couple of code paths are MySQL-specific (e.g. the `whereJsonContains` on `previous_slugs`, and `EditTrove::isDuplicateDraftViolation()` keying on MySQL errno `1062`).
+- **Drafting is fully app-owned** — there are no `packages/` submodules and no `oddvalue/laravel-drafts` / `guava/filament-drafts` dependency (an older version of this doc described those; they are gone). Only `kainiklas/filament-scout` remains, installed as a normal Composer dependency. The shadow-draft/canonical model lives entirely in app code — see the Draft/versioning pattern below.
 
 ## Commands
 
@@ -46,13 +46,15 @@ php artisan db:seed --class="Database\Seeders\Example\ExampleDataSeeder"  # opti
 php artisan scout:sync-index-settings                         # sync Meilisearch config after schema changes
 php artisan scout:import "App\Models\Trove"                   # reindex a model (also: App\Models\Collection)
 
-# Tests
-
-**NOTE**: The Test Suite is not yet built out. Do not use the tests as a diagnostic or review tool!
-#php artisan test
-#php artisan test --testsuite=Unit
-#php artisan test --testsuite=Feature
-#php artisan test --filter=TestClassName
+# Tests — Pest 4 on SQLite :memory: (see docs/change-logs/test-suite-buildout.md).
+# Factories in database/factories/ are current and match the schema. Two test-harness gotchas:
+#  - PublishedScope self-disables in tests because Filament registers the default panel as
+#    "current" at boot; call usePublicContext() (tests/Pest.php) to exercise public visibility.
+#  - The public layout needs config('branding.locales'); use the bootPublicSite() helper.
+php artisan test
+php artisan test --testsuite=Unit
+php artisan test --testsuite=Feature
+php artisan test --filter=TestClassName
 
 # Local services
 meilisearch --master-key="aSampleMasterKey"                   # required unless SCOUT_DRIVER=null
@@ -89,7 +91,13 @@ There is no `Organisation` or `Hub` model in this template — those were org-sp
 
 **Multilingual content**: `Trove` and `Collection` use `HasTranslations` (Spatie). Fields like `title`, `description` are JSON columns keyed by locale. Locale is set by the `set.locale` middleware on all web routes (`routes/web.php`).
 
-**Draft/versioning**: `Trove` uses `HasDrafts` (from `packages/laravel-drafts`). `$draftableRelations` on the model (`tags`, `troveTypes`, `collections`) controls what gets cloned into a new draft — media is cloned manually via the `drafted` model event in `Trove::booted()`. Preview route (`/resources/preview/{slug}`, auth-gated) loads drafts via `Trove::withDrafts()`; the public route (`/resources/{troveKey}`) only loads published records via `Trove::findBySlugOrRedirect()`, which also falls back through `previous_slugs` (JSON array) for old slugs before 404ing. The Filament admin UI uses `guava/filament-drafts` (`packages/filament-drafts`), with local customisations in `app/Filament/Draftable/`.
+**Draft/versioning (app-owned shadow-draft/canonical model)**: There is no drafts *package*. Each logical Trove is one **canonical** row plus at most one **shadow-draft** row (a separate `troves` row linked by `published_id → canonical.id`, guarded by `unique(published_id)`). `published_at` is the sole source of truth for "is this published" (NULL = not). Two orthogonal state axes are derived from columns alone: `Trove::publicationState()` → `App\Enums\PublicationState` (Draft / Published / PendingChanges, from `published_id`+`published_at`) and `Trove::reviewState()` → `App\Enums\ReviewState` (None / InReview / Reviewed, from `review_requested_at`/`reviewed_at`). Each accessor has a **DB-mirror scope** (`scopeWithPublicationState`, `scopeWithReviewState`) that must stay in parity with it (the code comments call for a locked parity test — see the test plan).
+
+`App\Services\TrovePublisher` is the ONLY place that mutates the lifecycle (`draftFor`, `publish`, `discardDraft`, `delete`, `unpublish`, `requestReview`, `completeReview`); the drafting rules (stable canonical PK, at most one draft, review handshake, media stash-then-purge on publish) live there. `$draftableRelations` (`tags`, `troveTypes`, `collections`) is what `TrovePublisher` copies between canonical and draft; media is copied via Spatie's `Media::copy()` (superseded media is renamed out of its collection in-transaction, then deleted on disk only after commit — swept up by `PruneSupersededMedia` if the post-commit purge fails).
+
+`App\Models\Scopes\PublishedScope` (global on `Trove`) restricts public/console/queue/Scout reads to published canonicals, but **self-disables whenever a Filament panel is the current request context**, so the admin sees every version. Preview route (`/resources/preview/{slug}`, auth-gated) loads the working version via `Trove::withDrafts()->workingVersions()`; the public route (`/resources/{troveKey}`) loads only published canonicals via `Trove::findBySlugOrRedirect()`, which falls back through `previous_slugs` (JSON array) for old slugs before 404ing.
+
+The Filament seam is `app/Filament/Resources/TroveResource/Pages/EditTrove.php`: saving a *live* trove forks a shadow draft (`forkToDraftAndRebind` + `remapMediaState`) so edits land on the draft, not the live row; there is no `app/Filament/Draftable/` directory.
 
 **Search**: `Trove` and `Collection` implement `Searchable` (Scout) with a custom `toSearchableArray()` that flattens all locale variants of title/description into single searchable strings. `UsesCustomSearchOptions` trait (used by `BrowseAll`) forces `showRankingScore` and a configurable `hitsPerPage` so results can be ranked and merged with DB-filtered results. After changing `toSearchableArray()` or index settings, re-run `scout:sync-index-settings` then reimport.
 
@@ -103,15 +111,17 @@ There is no `Organisation` or `Hub` model in this template — those were org-sp
 
 ```
 app/
+  Enums/              # PublicationState, ReviewState (the two Trove lifecycle axes)
   Filament/
     Resources/       # Admin CRUD for Trove, Collection, TroveType, Tag, TagType
     Pages/            # SiteOptionsPage, SiteContentPage, Login
-    Draftable/        # Local customisations on top of guava/filament-drafts
     Translatable/     # Custom translatable form/table components for Filament
   Livewire/           # Public-facing interactive components (BrowseAll is the main one)
   Models/
+    Scopes/           # PublishedScope (global scope on Trove)
+  Services/           # TrovePublisher — owns every draft/publish lifecycle transition
   Traits/             # e.g. UsesCustomSearchOptions
-packages/             # Git submodules: laravel-drafts, filament-drafts, filament-scout (own forks)
+  Console/Commands/   # e.g. PruneSupersededMedia (sweeps orphaned superseded media)
 resources/
   views/              # Blade templates (home, trove, collection, layouts/, components/)
   css/                # Tailwind entry point + brand CSS variables (app.css)
@@ -125,4 +135,5 @@ database/
 ### Authentication
 
 - Standard Laravel Auth + Azure AD via `chrisreedio/socialment` (`connected_accounts` table)
-- Filament admin access gated by `canAccessPanel()` on `User`
+- Filament admin access is gated by `User::canAccessPanel()`, which **currently returns `true` unconditionally** — any authenticated user reaches `/admin`. (`spatie/laravel-permission` is not installed; the orphaned `database/migrations/permissions/` folder is dead code and does not run.)
+- `App\Providers\AppServiceProvider::boot()` calls `Model::unguard()` globally and hydrates `config('app.locales')` / `config('branding.locales')` from `SiteSetting::instance()` at boot (wrapped in try/catch for fresh installs). In tests with an empty DB at boot, those configs fall back to the static `config/app.php` default of `['en' => 'English']`.
