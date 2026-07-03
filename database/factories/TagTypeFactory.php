@@ -2,28 +2,40 @@
 
 namespace Database\Factories;
 
+use App\Models\TagType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
-use App\Models\TagType;
 
+/**
+ * @extends Factory<TagType>
+ */
 class TagTypeFactory extends Factory
 {
-    /**
-     * The name of the factory's corresponding model.
-     *
-     * @var string
-     */
     protected $model = TagType::class;
 
-    /**
-     * Define the model's default state.
-     */
     public function definition(): array
     {
+        $label = rtrim($this->faker->unique()->words(2, true));
+
         return [
-            'label' => $this->faker->regexify('[A-Za-z0-9]{400}'),
-            'description' => $this->faker->text,
-            'freetext' => $this->faker->boolean,
+            'slug' => Str::slug($label).'-'.$this->faker->unique()->numberBetween(1, 999999),
+            'label' => ['en' => Str::title($label)],
+            'description' => ['en' => $this->faker->sentence()],
+            'freetext' => false,
+            'show_in_filter' => false,
+            'use_custom_tag_order' => false,
+            'order_column' => null,
         ];
+    }
+
+    /** Pin the slug (e.g. 'themes' / 'topics' for themeAndTopicTags tests). */
+    public function slug(string $slug): static
+    {
+        return $this->state(fn () => ['slug' => $slug]);
+    }
+
+    public function shownInFilter(): static
+    {
+        return $this->state(fn () => ['show_in_filter' => true]);
     }
 }

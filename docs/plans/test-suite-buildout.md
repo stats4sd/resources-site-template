@@ -1,6 +1,6 @@
 # Test Suite Build-Out — resources-site-template
 
-**Status:** Not Started
+**Status:** Completed — see [docs/change-logs/test-suite-buildout.md](../change-logs/test-suite-buildout.md). Final suite: 135 passing, 1 skipped (56 Unit + 79 Feature) on Pest 4 / SQLite `:memory:`. Note: Pest 4 required PHPUnit 12 (not 11 as written below), and `PublishedScope` self-disables in the test harness because Filament registers the default panel as current at boot — public-context tests call `usePublicContext()`. Several latent product issues were surfaced (see the change log's "Latent product issues" section) but left unfixed as this was a test-only task.
 
 ## Context
 

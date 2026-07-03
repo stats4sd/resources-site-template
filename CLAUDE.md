@@ -46,12 +46,11 @@ php artisan db:seed --class="Database\Seeders\Example\ExampleDataSeeder"  # opti
 php artisan scout:sync-index-settings                         # sync Meilisearch config after schema changes
 php artisan scout:import "App\Models\Trove"                   # reindex a model (also: App\Models\Collection)
 
-# Tests
-# The suite is being built out per docs/plans/test-suite-buildout.md (Pest 4, SQLite :memory:).
-# Until that plan is completed, existing tests are only stale Breeze auth scaffolding — do not
-# treat a passing/failing run as authoritative yet. Factories in database/factories/ are STALE
-# (they reference a deleted App\Models\Type and columns that no longer exist) and must be rebuilt
-# before any model-backed test will run.
+# Tests — Pest 4 on SQLite :memory: (see docs/change-logs/test-suite-buildout.md).
+# Factories in database/factories/ are current and match the schema. Two test-harness gotchas:
+#  - PublishedScope self-disables in tests because Filament registers the default panel as
+#    "current" at boot; call usePublicContext() (tests/Pest.php) to exercise public visibility.
+#  - The public layout needs config('branding.locales'); use the bootPublicSite() helper.
 php artisan test
 php artisan test --testsuite=Unit
 php artisan test --testsuite=Feature
