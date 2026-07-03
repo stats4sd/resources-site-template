@@ -35,7 +35,7 @@
 
             <!-- Staff login -->
             <a href="/admin" class="bg-brand-footer-text text-brand-footer-bg py-2 px-8 rounded-full whitespace-nowrap">
-                Staff Login
+                {!! \App\Models\SiteContent::get('footer_admin_login_label') !!}
             </a>
 
         </div>

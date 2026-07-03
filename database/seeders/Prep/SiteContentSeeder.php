@@ -33,6 +33,9 @@ class SiteContentSeeder extends Seeder
             'library_hero_description' => [
                 $defaultLocale => 'Browse the full library of resources and collections on a variety of topics.',
             ],
+            'footer_admin_login_label' => [
+                $defaultLocale => 'Staff Login',
+            ],
         ];
 
         foreach ($defaults as $key => $value) {

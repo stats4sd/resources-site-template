@@ -110,6 +110,18 @@ class SiteContentPage extends Page implements HasForms
                             ->extraAttributes(['class' => 'grey-box'])
                             ->childField(Forms\Components\Textarea::class),
                     ]),
+                Forms\Components\Section::make('Footer')
+                    ->collapsible()
+                    ->collapsed()
+                    ->schema([
+                        TranslatableComboField::make('footer_admin_login_label')
+                            ->label('Staff login button text')
+                            ->description('Appears as the button label in the site footer, linking to the admin panel.')
+                            ->icon('fluentui-document-footer-20-o')
+                            ->iconColor('primary')
+                            ->extraAttributes(['class' => 'grey-box'])
+                            ->childField(Forms\Components\TextInput::class),
+                    ]),
             ])
             ->statePath('data');
     }
@@ -134,6 +146,6 @@ class SiteContentPage extends Page implements HasForms
 
     private static function contentKeys(): array
     {
-        return ['home_heading_line1', 'home_heading_line2', 'home_intro', 'library_heading_line1', 'library_heading_line2', 'library_hero_description'];
+        return ['home_heading_line1', 'home_heading_line2', 'home_intro', 'library_heading_line1', 'library_heading_line2', 'library_hero_description', 'footer_admin_login_label'];
     }
 }
