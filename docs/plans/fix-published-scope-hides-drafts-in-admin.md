@@ -1,6 +1,6 @@
 # Plan: Make `PublishedScope` opt out automatically inside the Filament admin panel
 
-**Status:** Not Started
+**Status:** Completed. See [docs/change-logs/fix-published-scope-hides-drafts-in-admin.md](../change-logs/fix-published-scope-hides-drafts-in-admin.md).
 
 Fixes code-review finding #5 ([docs/code-reviews/trove-review-update.md](../code-reviews/trove-review-update.md)): the global `PublishedScope` hides unpublished troves from admin surfaces that never explicitly opt out. Only [TroveResource::getEloquentQuery()](../../app/Filament/Resources/TroveResource.php#L50) removes the scope. The "Show All Troves" collection picker ([AllTrovesTable:60](../../app/Livewire/AllTrovesTable.php#L60), `->query(fn () => Trove::query())`) and the collection's Troves relation manager ([TrovesRelationManager:30](../../app/Filament/Resources/CollectionResource/RelationManagers/TrovesRelationManager.php#L30)) both run scoped `Trove` queries.
 

@@ -1,6 +1,6 @@
 # Fix: `copyMedia(replace: true)` deletes canonical media on disk inside a non-restorable transaction
 
-**Status:** Not Started
+**Status:** Completed. See [docs/change-logs/fix-publish-media-clear-inside-transaction.md](../change-logs/fix-publish-media-clear-inside-transaction.md).
 
 Addresses finding #8 of [docs/code-reviews/trove-review-update.md](../code-reviews/trove-review-update.md).
 

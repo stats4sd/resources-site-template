@@ -19,26 +19,71 @@ Shadow drafts are linked to the canonical version via the `published_id` field. 
 
 Every single state change relating to drafts and publishing is brought together into the `app\Services\TrovePublisher` class. All the logic for publishing, cloning new shadow drafts, and reviewing troves lives here.
 
-## Review Process
+## Trove States
 
-> [!NOTE]
->  We had previously turned to use the term "checking" instead of review - but not in 100% of places. I decided to revert that - it is now "review" (I think this is more universal), and it's up to who-ever is managing the library to decide what that means to them.
+The Trove state is determined by 2 enum-backed attributes:
 
-`Trove` models now have a single ReviewStatus attribute, which pulls the logic determining the review state of an app into a single place. This uses an enum to ensure consistency. In theory, all places in the app that need to check the trove 'status' should pull from either:
+- `publicationState()`
+  - Draft (new draft; never published / not visible on the front-end)
+  - Published (trove is published / visible on the front-end. No working edits.)
+  - PendingChanges (trove is published _and_ has a 'working' copy with draft edits. The published version is visible on the front-end; admins interact with the 'working' copy on the back end to draft changes without affecting the live version).
 
-- this ReviewStatus attribute;
-- the simpler "isPublished()" attribute, for simple checks like showing items on the front-end.
+- `reviewState()`
+  - None (the trove has not been reviwed)
+  - InReview (a review has been requested and is currently pending.)
+  - Reviewed (a review has been completed)
 
 
+These 2 states are independant of each other. Marking a trove as reviewed _does not_ automatically publish it -> those are 2 separate decisions for users to make.
 
-
+The 2 statuses are clearly visible on the main List Troves page in the admin panel
 
 ### User Workflow
 
-1. A new trove is created -> an unpublished draft.  (Trove ReviewStatus === Draft)
-2. There are 3 options at the bottom of the edit page:
-    - Save Draft (saves the changes and doesn't change the status)
-    - Request Review -> opens a popup asking for the user to review (Trove ReviewStatus === InReview)
-    - Publish -> opens a popup for you to confirm; asks for an explicit tickbox if the trove is not reviewed (Trove ReviewStatus === Published)
+| Step | Description | Records Created | Publication Status | Review Status |
+| -- | -- | -- | -- | --
+| 1 | New Trove created | 1 (Canonical) | Draft | None
+| 2 | Trove is edited | 1 (Canonical) | Draft | None
+| 3 | Reviwew is requested | 1 (Canonical) | Draft | InReview
+| 4 | More edits occur (reviewer makes edits, or suggests changes etc) | 1 (Canonical) | Draft | InReview
+| 5 | Review is approved | 1 (Canonical) | Draft | Reviewed
+| 6 | Trove is published | 1 (Canonical) | Published | Reviewed
+| 7 | Trove is edited again | 2 (Published Canonical + Shadow Draft) | PendingChanges | None
+| 8 | Trove review is requested | 2 (Published Canonical + Shadow Draft) | PendingChanges | InReview
+| 9 | Trove review is approved | 2 (Published Canonical + Shadow Draft) | PendingChanges | Reviewed
+| 10 | Trove changes are published | 1 (Published Canonical) | Published | Reviewed
 
-3. An InReview trove gains a new button in the header -> Mark as Reviewed. A user can click that to mark the Trove as Reviewed.
+
+Notes:
+
+- In step 7, editing the previously published trove creates a new "Shadow Draft" instance. This new instance has not yet been reviewed, which is why the review status changes.
+- In step 10, the edits made to the shadow draft (properties, media files and other relations like tags) are merged into the 'canonical' version. It happens this way so that the 'canonical' version retains the same primary key / slug etc, to ensure long-term consistency.
+
+## Other Considerations / Fixes
+
+### Deletes
+
+1. When reviewing how troves are deleted, it was decided to always hard-delete "shadow drafts" - mainly for simplicity. Soft-deleting would prevent a new shadow draft getting created if that trove was edited again (due to the unique() db constraint), and restoring the soft-deleted entry might be confusing for a user unless there's a clear UI explaining that they are restoring previous edits instead of starting fresh.
+2. Canonical troves are always soft-deleted; regardless of Draft or Published status.
+
+### Media handling
+
+When creating a new 'shadow draft', all media linked to the canonical trove are fully copied on disk, so there are 2 copies of the files.
+
+When publishing updates to a live trove (step 10 above), the process is written to prevent accidental file loss:
+
+1. The Canonical media are moved to a temporary `*_superseded` collection. (this doesn't change any files on disk; it's only a database write)
+2. The Shadow draft media are then copied over to the canonical trove, filling the regular collections. (this copies the media on disk)
+3. Then the shadow drafte is deleted, along with deleting its media on disk.
+4. Finally, after the database transaction has completed successfully, the `*_superseded` media are deleted from disk.
+
+There is currently an issue where troves with multiple files get given the sasme file name on publish - see #7.
+
+
+### Scopes
+
+The 2 sets of enum-backed attributes only work to filter records when the Trove Collection is already loaded into PHP. To enable query-level filtering, we now also have 2 scopes:  `scopeWithPublishedState` and `scopeWithReviewState`. These are written next to the computed attributes and use the same filtering logic, but aren't directly referenced. If one changes, the other _is not automatically changed_ and must be manually updated. This is a structural downside to using php-level 'Attributes'.
+
+When we write a proper test suite for this tool, we should add an explicit test to confirm that these computed attributes and query scopes are using identical logic, so we can immediately tell if they get out of sync.
+
+As a separate note, the global "PublishedScope" added to the Trove is now fully disabled across the whole Filament admin panel (if statement in `PublishedScope`).

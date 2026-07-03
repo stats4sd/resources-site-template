@@ -6,6 +6,9 @@ use App\Models\Trove;
 use App\Models\User;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Throwable;
 
 /**
  * Owns every lifecycle transition for the published + single-shadow-draft model.
@@ -31,6 +34,13 @@ class TrovePublisher
         'review_requested_at',
         'reviewed_at',
     ];
+
+    /**
+     * Suffix appended to a collection_name to move media out of its live collection
+     * without touching disk (see stashMediaForReplacement()). Never a substring that
+     * matches a registered collection name (cover_image_*, content_*).
+     */
+    public const TRASH_SUFFIX = '__superseded';
 
     /**
      * Return the shadow draft for a published canonical row, creating it (as a copy of
@@ -136,8 +146,12 @@ class TrovePublisher
             });
         }
 
-        // A shadow draft: fold it onto its canonical.
-        return DB::transaction(function () use ($draft) {
+        // A shadow draft: fold it onto its canonical. Media replacement inside the
+        // transaction only stashes the canonical's superseded media (a DB-only rename,
+        // see copyMedia/stashMediaForReplacement) — no file is deleted from disk until
+        // after commit, so a rollback here always leaves the canonical's original files
+        // intact.
+        $canonical = DB::transaction(function () use ($draft) {
             /** @var Trove $canonical */
             $canonical = $draft->publishedVersion()->firstOrFail();
 
@@ -174,6 +188,13 @@ class TrovePublisher
 
             return $canonical->refresh();
         });
+
+        // Physically remove the stashed media now that the DB state is committed. Best
+        // effort: the publish has already succeeded, so a failure here must not surface
+        // as an error — leftover trash rows are swept up by PruneSupersededMedia.
+        $this->purgeSupersededMedia($canonical);
+
+        return $canonical;
     }
 
     /** Throw away a shadow draft's pending edits, leaving the live canonical untouched. */
@@ -283,7 +304,10 @@ class TrovePublisher
 
         $from->getRegisteredMediaCollections()->each(function ($collection) use ($from, $to, $replace, &$map) {
             if ($replace) {
-                $to->clearMediaCollection($collection->name);
+                // Stash rather than clearMediaCollection(): renaming collection_name is a
+                // DB-only op (no disk delete) and also empties the live collection so
+                // singleFile collections don't auto-evict a second file mid-transaction.
+                $this->stashMediaForReplacement($to, $collection->name);
             }
 
             $from->getMedia($collection->name)->each(function ($media) use ($to, $collection, &$map) {
@@ -293,6 +317,45 @@ class TrovePublisher
         });
 
         return $map;
+    }
+
+    /**
+     * Move $to's existing media in $collectionName out of the live collection into a
+     * per-publish "trash" collection, by renaming collection_name only. Spatie's
+     * DefaultPathGenerator keys storage paths on media.id, not collection_name, so this
+     * moves no files on disk. Uses a bulk query-builder update (not per-model saves) so
+     * no Spatie model events fire and nothing is touched on disk.
+     *
+     * Safe inside a transaction: on rollback the rename reverts and the live media is
+     * exactly as it was; the actual files are deleted later by purgeSupersededMedia().
+     */
+    private function stashMediaForReplacement(Trove $to, string $collectionName): void
+    {
+        $to->media()
+            ->where('collection_name', $collectionName)
+            ->update(['collection_name' => $collectionName.self::TRASH_SUFFIX]);
+    }
+
+    /**
+     * Permanently delete media previously stashed by stashMediaForReplacement(). Must
+     * only be called after the publish transaction has committed — $media->delete()
+     * removes the original, conversions and responsive images from disk and cannot be
+     * rolled back. Failure here is logged, not thrown: the publish has already
+     * succeeded, and any leftover trash is reclaimed by the PruneSupersededMedia sweep.
+     */
+    private function purgeSupersededMedia(Trove $canonical): void
+    {
+        try {
+            $canonical->media()
+                ->where('collection_name', 'like', '%'.self::TRASH_SUFFIX)
+                ->get()
+                ->each(fn (Media $media) => $media->delete());
+        } catch (Throwable $e) {
+            Log::error('Failed to purge superseded media after publish', [
+                'trove_id' => $canonical->id,
+                'exception' => $e,
+            ]);
+        }
     }
 
     /** Detach pivots and hard-delete a shadow draft row (its media go with the model delete). */
