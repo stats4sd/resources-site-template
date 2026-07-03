@@ -186,6 +186,27 @@ class TrovePublisher
         DB::transaction(fn () => $this->deleteDraftRow($draft));
     }
 
+    /**
+     * Delete a logical Trove from any working row. The shadow draft (if any) is
+     * hard-deleted — it must never linger soft-deleted, where it keeps occupying
+     * unique(published_id) and blocks the next draftFor(). The canonical is
+     * soft-deleted (recoverable).
+     */
+    public function delete(Trove $working): void
+    {
+        DB::transaction(function () use ($working) {
+            $canonical = $working->published_id !== null
+                ? $working->publishedVersion()->firstOrFail()
+                : $working;
+
+            if ($draft = $canonical->draft()->first()) {
+                $this->deleteDraftRow($draft);
+            }
+
+            $canonical->delete();
+        });
+    }
+
     /** Remove a canonical row from the public site without deleting it. */
     public function unpublish(Trove $canonical): void
     {

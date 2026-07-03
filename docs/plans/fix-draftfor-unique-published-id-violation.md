@@ -1,6 +1,6 @@
 # Plan: Hard-delete shadow drafts + catch the `unique(published_id)` violation on `draftFor()`
 
-**Status:** Not Started
+**Status:** Completed — see [docs/change-logs/fix-draftfor-unique-published-id-violation.md](../change-logs/fix-draftfor-unique-published-id-violation.md)
 
 Fixes the **in-scope** parts of code-review finding #7 ([docs/code-reviews/trove-review-update.md](../code-reviews/trove-review-update.md)): `TrovePublisher::draftFor()`'s check-then-insert (`$canonical->draft()->first()` then insert) is guarded only by application logic, against the DB-level `$table->unique('published_id')` ([2023_11_24_132900_create_troves_table.php:37](../../database/migrations/2023_11_24_132900_create_troves_table.php#L37)). Two failure paths were flagged:
 

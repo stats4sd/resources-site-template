@@ -13,7 +13,9 @@ use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\Alignment;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Database\QueryException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class EditTrove extends EditRecord
@@ -78,7 +80,9 @@ class EditTrove extends EditRecord
 
                     return redirect($this->getResource()::getUrl('index'));
                 }),
-            Actions\DeleteAction::make(),
+            Actions\DeleteAction::make()
+                ->using(fn (Trove $record) => app(TrovePublisher::class)->delete($record))
+                ->successRedirectUrl($this->getResource()::getUrl('index')),
         ];
     }
 
@@ -156,16 +160,45 @@ class EditTrove extends EditRecord
     /**
      * Fork the canonical's shadow draft and re-point the page + form at it so all of
      * parent::save()'s persistence (record update, relation sync, media) lands on the draft.
+     *
+     * draftFor()'s check-then-insert is only guarded by application logic against the
+     * DB-level unique(published_id) index, so a concurrent first-fork by another admin can
+     * still collide here. Rather than silently recovering onto the winner's draft (which
+     * would let this save clobber their edits), bounce the user back with an explanation and
+     * discard this save — the underlying concurrent-edit race needs live presence indication
+     * (Reverb/Echo), tracked separately.
      */
     protected function forkToDraftAndRebind(): void
     {
         $canonical = $this->getRecord();
         $mediaUuidMap = [];
-        $draft = app(TrovePublisher::class)->draftFor($canonical, $mediaUuidMap);
+
+        try {
+            $draft = app(TrovePublisher::class)->draftFor($canonical, $mediaUuidMap);
+        } catch (QueryException $e) {
+            if (! $this->isDuplicateDraftViolation($e)) {
+                throw $e;
+            }
+
+            Notification::make()
+                ->title('Could not save — another editor got there first')
+                ->body('Someone else has just started editing this trove. To avoid overwriting their changes your edit was not saved. Reload the page and try again.')
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw new Halt;
+        }
 
         $this->record = $draft;      // handleRecordUpdate(getRecord(), …) now targets the draft
         $this->form->model($draft);  // relation Selects + media inherit via the container model
         $this->remapMediaState($mediaUuidMap);
+    }
+
+    /** MySQL duplicate-entry (SQLSTATE 23000 / errno 1062) on the published_id unique index. */
+    protected function isDuplicateDraftViolation(QueryException $e): bool
+    {
+        return ($e->errorInfo[1] ?? null) === 1062;
     }
 
     /**
