@@ -565,7 +565,7 @@ class Trove extends Model implements HasMedia
     {
 
         // never update the slug of a published version
-        if($this->has_published_version) {
+        if($this->slug !== null && $this->has_published_version) {
             return $this->slug;
         }
 
