@@ -13,7 +13,7 @@ function validTroveFormData(TroveType $type): array
     return [
         'title' => ['en' => 'A New Resource'],
         'description' => ['en' => 'Some description'],
-        'troveTypes' => [$type->id],
+        'trove_type_id' => $type->id,
         'source' => 0,
         'creation_date' => now()->format('Y-m-d'),
     ];
@@ -31,7 +31,7 @@ it('creates an unpublished trove via the create form', function () {
     expect($trove)->not->toBeNull()
         ->and($trove->published_at)->toBeNull()
         ->and($trove->getTranslation('title', 'en'))->toBe('A New Resource')
-        ->and($trove->troveTypes->pluck('id')->all())->toBe([$type->id]);
+        ->and($trove->trove_type_id)->toBe($type->id);
 });
 
 it('publishes a trove through the publish form action', function () {

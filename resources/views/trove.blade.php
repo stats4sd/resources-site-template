@@ -6,7 +6,7 @@
     $availableLanguages = array_keys($resource->getTranslations('title'));
     $currentLocale = request('locale', app()->getLocale());
     $allLocales = config('branding.locales', ['en' => 'English']);
-    $troveTypes = $resource->troveTypes;
+    $troveType = $resource->troveType;
     $authorTags = $resource->tags()->whereHas('tagType', function ($query) {
         $query->where('slug', 'authors');
     })->get();
@@ -34,11 +34,11 @@
         <div class="flex flex-col justify-between flex-1 p-8 lg:p-12">
 
             <div class="flex flex-wrap gap-2">
-                @foreach($troveTypes as $type)
+                @if($troveType)
                     <span class="text-xs uppercase tracking-widest bg-white/20 text-white px-3 py-1.5 rounded-full">
-                        {{ $type->label }}
+                        {{ $troveType->label }}
                     </span>
-                @endforeach
+                @endif
             </div>
 
             <div>

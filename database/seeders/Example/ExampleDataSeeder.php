@@ -110,6 +110,7 @@ class ExampleDataSeeder extends Seeder
                 $trove = new Trove();
                 $trove->title          = $data['title'];
                 $trove->description    = $data['description'];
+                $trove->trove_type_id  = $troveType?->id;
                 $trove->external_links = $data['external_links'] ?? null;
                 $trove->youtube_links  = $data['youtube_links'] ?? null;
                 $trove->source         = false;
@@ -117,10 +118,6 @@ class ExampleDataSeeder extends Seeder
                 $trove->uploader_id    = $user->id;
                 $trove->published_at   = now();
                 $trove->save();
-
-                if ($troveType) {
-                    $trove->troveTypes()->sync([$troveType->id]);
-                }
 
                 $tagIds = array_filter([
                     $firstTopicTag?->id,

@@ -20,7 +20,7 @@ function canonicalWithEverything(array $attributes = []): Trove
     $trove = publishedTrove($attributes);
 
     $trove->tags()->attach(Tag::factory()->create());
-    $trove->troveTypes()->attach(TroveType::factory()->create());
+    $trove->update(['trove_type_id' => TroveType::factory()->create()->id]);
     $trove->collections()->attach(Collection::factory()->create());
     $trove->addMediaFromString('original content')->usingFileName('doc.txt')->toMediaCollection('content_en');
 
@@ -43,7 +43,7 @@ describe('draftFor', function () {
             ->and($draft->published_at)->toBeNull()
             ->and($draft->getTranslation('title', 'en'))->toBe('Live Title')
             ->and($draft->tags->pluck('id')->all())->toBe($canonical->tags->pluck('id')->all())
-            ->and($draft->troveTypes->pluck('id')->all())->toBe($canonical->troveTypes->pluck('id')->all())
+            ->and($draft->trove_type_id)->toBe($canonical->trove_type_id)
             ->and($draft->collections->pluck('id')->all())->toBe($canonical->collections->pluck('id')->all())
             ->and($draft->getMedia('content_en'))->toHaveCount(1);
 

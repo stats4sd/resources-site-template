@@ -54,7 +54,6 @@ class Trove extends Model implements HasMedia
      */
     protected array $draftableRelations = [
         'tags',
-        'troveTypes',
         'collections',
     ];
 
@@ -321,9 +320,9 @@ class Trove extends Model implements HasMedia
         return $this->belongsTo(User::class, 'requester_id');
     }
 
-    public function troveTypes(): BelongsToMany
+    public function troveType(): BelongsTo
     {
-        return $this->belongsToMany(TroveType::class);
+        return $this->belongsTo(TroveType::class);
     }
 
     public function collections(): BelongsToMany

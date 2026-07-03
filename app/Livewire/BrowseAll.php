@@ -53,7 +53,7 @@ class BrowseAll extends Component
 
     public function fetchInitialData()
     {
-        $this->resources = Trove::with(['troveTypes', 'themeAndTopicTags'])->whereNotNull('published_at')->get();
+        $this->resources = Trove::with(['troveType', 'themeAndTopicTags'])->whereNotNull('published_at')->get();
         $this->collections = Collection::where('public', 1)->get();
         $this->mergeItems();
     }
@@ -128,7 +128,7 @@ class BrowseAll extends Component
                 'slug' => $r->slug,
                 'title' => $r->title,
                 'description' => $r->description,
-                'troveTypes' => $r->troveTypes,
+                'troveType' => $r->troveType,
                 'tags' => $r->themeAndTopicTags,
                 'cover_image_thumb' => $r->cover_image_thumb,
                 'score' => $hit['_rankingScore'] ?? 0,
@@ -143,7 +143,7 @@ class BrowseAll extends Component
                 'slug' => null, // collections use ID instead of slug
                 'title' => $c->title,
                 'description' => $c->description,
-                'troveTypes' => null,
+                'troveType' => null,
                 'tags' => null,
                 'cover_image_thumb' => $c->cover_image_thumb,
                 'score' => $hit['_rankingScore'] ?? 0,

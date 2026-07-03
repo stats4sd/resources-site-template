@@ -295,7 +295,7 @@ class TrovePublisher
         }
     }
 
-    /** Sync the draftable relations (tags, troveTypes, collections) from $from onto $to. */
+    /** Sync the draftable relations (tags, collections) from $from onto $to. */
     private function copyRelations(Trove $from, Trove $to): void
     {
         foreach ($from->getDraftableRelations() as $relation) {

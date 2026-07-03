@@ -105,13 +105,11 @@ class TroveResource extends Resource
                                 ->description(__('Key metadata for filters and search'))
                                 ->schema([
 
-                                    Forms\Components\Select::make('troveTypes')
-                                        ->label('What type(s) of resource is this?')
-                                        ->relationship('troveTypes', 'label')
-                                        ->multiple()
+                                    Forms\Components\Select::make('trove_type_id')
+                                        ->label('What type of resource is this?')
+                                        ->relationship('troveType', 'label')
                                         ->preload()
                                         ->placeholder('Select the resource type')
-                                        ->relationship('troveTypes', 'label')
                                         ->required()
                                         ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
 
@@ -404,7 +402,7 @@ class TroveResource extends Resource
             SelectFilter::make('source')
                 ->options([0 => 'Internal', 1 => 'External']),
             SelectFilter::make('resourceType')
-                ->relationship('troveTypes', 'label')
+                ->relationship('troveType', 'label')
                 ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
             SelectFilter::make('uploader')
                 ->relationship('user', 'name'),
