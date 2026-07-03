@@ -70,35 +70,26 @@ class Trove extends Model implements HasMedia
         // Public visibility (R1): only published canonical rows by default.
         static::addGlobalScope(new PublishedScope);
 
-        static::saving(function (Trove $trove) {
-
-            // don't generate a slug if it already exists
-            if ($trove->slug) {
-                return;
-            }
-
-            // set the slug to the first available title locale
-            $locales = $trove->getTranslatedLocales('title');
-
-            $trove->slug = Str::slug($trove->getTranslation('title', $locales[0])).'-'.Carbon::now()->format('Y-m-d');
-
-            // check for uniqueness and append a number if necessary
-            $uniquenessQuery = Trove::withTrashed()
-                ->withDrafts()
-                ->where('slug', $trove->slug);
-
-            if ($trove->id) {
-                $uniquenessQuery = $uniquenessQuery->where('id', '!=', $trove->id);
-            }
-
-            $count = $uniquenessQuery->count();
-
-            if ($count > 0) {
-                $trove->slug = $trove->slug.'-'.$count;
-            }
-
+        static::creating(function(self $trove) {
+            $trove->slug = $trove->generateSlug();
         });
 
+        static::saving(function (Trove $trove) {
+
+            ray($trove->getDirty());
+            ray($trove);
+
+            if($trove->isDirty('title')) {
+
+                ray('updating slug');
+                $trove->slug = $trove->generateSlug();
+            }
+
+            ray($trove->slug);
+
+
+
+        });
     }
 
     /**
@@ -570,4 +561,34 @@ class Trove extends Model implements HasMedia
         return collect(); // empty collection if no media found
     }
 
+    public function generateSlug(): string
+    {
+
+        // never update the slug of a published version
+        if($this->has_published_version) {
+            return $this->slug;
+        }
+
+        // set the slug to the first available title locale
+        $locales = $this->getTranslatedLocales('title');
+
+        $slug = Str::slug($this->getTranslation('title', $locales[0]));
+
+        // check for uniqueness and append a number if necessary
+        $uniquenessQuery = $this::withTrashed()
+            ->withDrafts()
+            ->where('slug', $slug);
+
+        if ($this->id) {
+            $uniquenessQuery = $uniquenessQuery->where('id', '!=', $this->id);
+        }
+
+        $count = $uniquenessQuery->count();
+
+        if ($count > 0) {
+            $slug = $slug.'-'.$count;
+        }
+
+        return $slug;
+    }
 }
