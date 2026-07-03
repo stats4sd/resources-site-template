@@ -6,7 +6,7 @@
     $availableLanguages = array_keys($collection->getTranslations('title'));
     $currentLocale = request('locale', app()->getLocale());
     $allLocales = config('branding.locales', ['en' => 'English']);
-    $resourceCount = $collection->troves()->where('is_published', 1)->count();
+    $resourceCount = $collection->troves()->whereNotNull('published_at')->count();
 @endphp
 
 <!-- Hero: full-width typography on brand-primary -->

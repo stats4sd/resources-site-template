@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Trove;
 use Livewire\Component;
 use Filament\Tables\Table;
+use Filament\Facades\Filament;
 use Filament\Tables\Actions\Action;
 use Livewire\Attributes\Reactive;
 use Filament\Forms\Contracts\HasForms;
@@ -34,6 +35,17 @@ class AllTrovesTable extends Component implements HasTable, HasForms
 
     #[Reactive]
     public string $activeLocale;
+
+    /**
+     * A plain Livewire component (not a Filament-native one) loses the current panel
+     * on subsequent /livewire/update requests, which would re-enable PublishedScope
+     * mid-interaction. Pin it here so unpublished/draft troves stay visible across
+     * search/filter/paginate.
+     */
+    public function booted(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+    }
 
     public function render()
     {

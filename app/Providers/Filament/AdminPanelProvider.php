@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use Filament\Panel;
 use Filament\Widgets;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\PanelProvider;
 use App\Filament\Pages\Login;
 use App\Filament\Pages\SiteContentPage;
@@ -93,7 +94,8 @@ class AdminPanelProvider extends PanelProvider
                 SpatieLaravelTranslatablePlugin::make()
                     ->defaultLocales(array_keys(config('branding.locales', ['en' => 'English']))),
             ])
-            ->viteTheme('resources/css/filament/admin/theme.css');
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            ->font('Inter', provider: LocalFontProvider::class);
     }
 
     private function brandPrimary(): array

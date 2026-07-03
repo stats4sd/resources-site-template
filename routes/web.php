@@ -34,7 +34,8 @@ Route::group([
             return;
         }
 
-        $resource = Trove::withDrafts()->where('slug', $slug)->firstOrFail();
+        // Show the working version — the shadow draft when one exists, else the live/working row.
+        $resource = Trove::withDrafts()->workingVersions()->where('slug', $slug)->firstOrFail();
         return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     });
 
