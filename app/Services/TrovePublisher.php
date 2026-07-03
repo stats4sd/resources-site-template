@@ -36,14 +36,23 @@ class TrovePublisher
      * Return the shadow draft for a published canonical row, creating it (as a copy of
      * the canonical's content, relations and media) on first edit. Idempotent: there is
      * only ever one draft per canonical.
+     *
+     * $mediaUuidMap is an out-parameter populated with, per media collection, a
+     * canonicalUuid => draftUuid map. Callers that filled a form from the canonical need
+     * this to rewrite the media components' state onto the draft's (new) UUIDs — without
+     * it, the draft's unchanged files would be treated as abandoned and deleted on save.
      */
-    public function draftFor(Trove $canonical): Trove
+    public function draftFor(Trove $canonical, array &$mediaUuidMap = []): Trove
     {
         if ($existing = $canonical->draft()->first()) {
+            // Idempotent path: no fresh copy to read UUIDs from, so pair the canonical's
+            // media to the existing draft's to build the same canonicalUuid => draftUuid map.
+            $mediaUuidMap = $this->existingDraftMediaMap($canonical, $existing);
+
             return $existing;
         }
 
-        return DB::transaction(function () use ($canonical) {
+        return DB::transaction(function () use ($canonical, &$mediaUuidMap) {
             /** @var Trove $draft */
             // A fresh edit of a live Trove starts with a clean review slate: exclude all
             // four review fields so a re-edit can never inherit a stale reviewer/request.
@@ -58,10 +67,45 @@ class TrovePublisher
             $draft->save();
 
             $this->copyRelations($canonical, $draft);
-            $this->copyMedia($canonical, $draft);
+            $mediaUuidMap = $this->copyMedia($canonical, $draft);
 
             return $draft;
         });
+    }
+
+    /**
+     * Build the canonicalUuid => draftUuid map for a draft that already exists (no fresh
+     * copy to read UUIDs from). Pairs each collection's media by file_name where those
+     * names are unambiguous, otherwise positionally. Collections whose counts diverged
+     * (the draft was edited independently) are left out of the map entirely — the caller
+     * reloads those from the draft rather than remapping stale canonical UUIDs.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function existingDraftMediaMap(Trove $canonical, Trove $draft): array
+    {
+        $map = [];
+
+        $canonical->getRegisteredMediaCollections()->each(function ($collection) use ($canonical, $draft, &$map) {
+            $canonicalMedia = $canonical->getMedia($collection->name)->values();
+            $draftMedia = $draft->getMedia($collection->name)->values();
+
+            if ($canonicalMedia->isEmpty() || $canonicalMedia->count() !== $draftMedia->count()) {
+                return; // nothing to pair, or divergent: caller reloads from the draft
+            }
+
+            $byName = $draftMedia->keyBy('file_name');
+            $namesUnique = $byName->count() === $draftMedia->count();
+
+            $canonicalMedia->each(function ($media, $i) use ($byName, $draftMedia, $namesUnique, $collection, &$map) {
+                $counterpart = $namesUnique
+                    ? ($byName[$media->file_name] ?? $draftMedia[$i])
+                    : $draftMedia[$i];
+                $map[$collection->name][$media->uuid] = $counterpart->uuid;
+            });
+        });
+
+        return $map;
     }
 
     /**
@@ -205,18 +249,29 @@ class TrovePublisher
         }
     }
 
-    /** Copy each registered media collection from $from onto $to (replacing $to's when publishing). */
-    private function copyMedia(Trove $from, Trove $to, bool $replace = false): void
+    /**
+     * Copy each registered media collection from $from onto $to (replacing $to's when
+     * publishing). Returns a per-collection canonicalUuid => copyUuid map so callers that
+     * need to follow the copies (e.g. rebinding a form to the draft) can remap UUIDs.
+     *
+     * @return array<string, array<string, string>>
+     */
+    private function copyMedia(Trove $from, Trove $to, bool $replace = false): array
     {
-        $from->getRegisteredMediaCollections()->each(function ($collection) use ($from, $to, $replace) {
+        $map = [];
+
+        $from->getRegisteredMediaCollections()->each(function ($collection) use ($from, $to, $replace, &$map) {
             if ($replace) {
                 $to->clearMediaCollection($collection->name);
             }
 
-            $from->getMedia($collection->name)->each(
-                fn ($media) => $media->copy($to, $media->collection_name, $media->disk)
-            );
+            $from->getMedia($collection->name)->each(function ($media) use ($to, $collection, &$map) {
+                $copy = $media->copy($to, $media->collection_name, $media->disk);
+                $map[$collection->name][$media->uuid] = $copy->uuid;
+            });
         });
+
+        return $map;
     }
 
     /** Detach pivots and hard-delete a shadow draft row (its media go with the model delete). */

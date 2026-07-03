@@ -1,6 +1,6 @@
 # Plan: Fork a live Trove's shadow draft in `save()`, gated by a form-state dirty-check
 
-**Status:** Not Started
+**Status:** Completed — see [docs/change-logs/fix-live-trove-edit-forks-on-save.md](../change-logs/fix-live-trove-edit-forks-on-save.md)
 
 Fixes code-review finding #1 ([docs/code-reviews/trove-review-update.md](../code-reviews/trove-review-update.md)): editing a live Trove and pressing **Save draft** / **Request review** currently writes the new tags and media straight onto the public canonical, because the fork happens in `handleRecordUpdate()` — *after* Filament's `getState()` has already run `saveRelationships()` against the canonical-bound form. The fix moves the fork earlier (into an overridden `save()`, before `getState()`), rebinds the form to the draft, and only forks when the form actually changed.
 

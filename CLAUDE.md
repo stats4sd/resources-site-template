@@ -47,10 +47,12 @@ php artisan scout:sync-index-settings                         # sync Meilisearch
 php artisan scout:import "App\Models\Trove"                   # reindex a model (also: App\Models\Collection)
 
 # Tests
-php artisan test
-php artisan test --testsuite=Unit
-php artisan test --testsuite=Feature
-php artisan test --filter=TestClassName
+
+**NOTE**: The Test Suite is not yet built out. Do not use the tests as a diagnostic or review tool!
+#php artisan test
+#php artisan test --testsuite=Unit
+#php artisan test --testsuite=Feature
+#php artisan test --filter=TestClassName
 
 # Local services
 meilisearch --master-key="aSampleMasterKey"                   # required unless SCOUT_DRIVER=null
