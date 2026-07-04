@@ -4,7 +4,14 @@ namespace App\Filament\Resources\TagTypeResource\RelationManagers;
 
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
+use Filament\Actions\CreateAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -23,9 +30,9 @@ class TagsRelationManager extends RelationManager
         return (bool) $ownerRecord->use_custom_tag_order;
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 TranslatableComboField::make('name')
                     ->icon('heroicon-s-tag')
@@ -44,8 +51,8 @@ class TagsRelationManager extends RelationManager
             ->defaultSort('order_column')
             ->description('Click the ⇅ button, then drag to set the order tags appear in the filter bar. Note that the order saves automatically. Disable "Use custom tag order?" above to revert to alphabetical.')
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
-                Tables\Actions\Action::make('resetAllOrder')
+                CreateAction::make(),
+                Action::make('resetAllOrder')
                     ->label('Reset all to alphabetical')
                     ->icon('heroicon-o-arrow-path')
                     ->color('gray')
@@ -55,18 +62,18 @@ class TagsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('name')
                     ->label('Name'),
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('resetOrder')
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('resetOrder')
                         ->label('Reset to alphabetical')
                         ->icon('heroicon-o-arrow-path')
                         ->action(fn ($records) => $records->each->update(['order_column' => null]))
                         ->deselectRecordsAfterCompletion(),
-                    Tables\Actions\DeleteBulkAction::make(),
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

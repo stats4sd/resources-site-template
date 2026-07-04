@@ -7,25 +7,27 @@ use App\Enums\PublicationState;
 use App\Filament\Resources\TroveResource;
 use App\Models\Trove;
 use Filament\Actions;
-use Filament\Resources\Components\Tab;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Kainiklas\FilamentScout\Traits\InteractsWithScout;
+use LaraZeus\SpatieTranslatable\Actions\LocaleSwitcher;
+use LaraZeus\SpatieTranslatable\Resources\Pages\ListRecords\Concerns\Translatable;
 
 class ListTroves extends ListRecords
 {
-    use ListRecords\Concerns\Translatable;
+    use Translatable;
     use InteractsWithScout;
 
     protected static string $resource = TroveResource::class;
 
-    protected ?string $maxContentWidth = 'full';
+    protected \Filament\Support\Enums\Width|string|null $maxContentWidth = \Filament\Support\Enums\Width::Full;
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\CreateAction::make(),
-            Actions\LocaleSwitcher::make(),
+            LocaleSwitcher::make(),
         ];
     }
 

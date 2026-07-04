@@ -1,8 +1,15 @@
-@import '/vendor/filament/filament/resources/css/theme.css';
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
 @import './fonts.css';
 
-@config 'tailwind.config.js';
+/* The Filament vendor theme imports Tailwind with source(none), so only these
+   explicit sources are scanned for the admin panel's utility classes. */
+@source '../../../../app/Filament/**/*.php';
+@source '../../../../resources/views/filament/**/*.blade.php';
 
-.grey-box {
+/* Applied via ->extraAttributes(['class' => 'grey-box']). On Section::make() this lands on
+   the fi-sc-section wrapper div (Filament v5), not the rounded fi-section card inside it, so
+   the card background must be targeted explicitly to avoid grey peeking through its corners. */
+.fi-section.grey-box,
+.grey-box .fi-section {
     background-color: #E6E6E6;
 }
