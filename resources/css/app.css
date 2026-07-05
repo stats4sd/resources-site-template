@@ -1,127 +1,146 @@
 /* Brand font - change the @import URL and --brand-font below to use a different Google Font.
    Browse fonts at https://fonts.google.com */
 @import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wdth,wght@0,75..100,300..800;1,75..100,300..800&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+    themes: false;
+}
+
+/* Scan Blade sources outside resources/ that Tailwind's automatic detection skips
+   (vendor/ is gitignored). Public pagination + Azure login chrome live here. */
+@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+@source "../../vendor/chrisreedio/socialment/resources/**/*.blade.php";
+
+/* Expose the brand CSS variables as Tailwind colour utilities (bg-brand-primary, text-brand-secondary, …). */
+@theme {
+    --color-brand-primary: var(--brand-primary);
+    --color-brand-secondary: var(--brand-secondary);
+    --color-brand-bg: var(--brand-bg);
+    --color-brand-footer-bg: var(--brand-footer-bg);
+    --color-brand-footer-text: var(--brand-footer-text);
+}
 
 :root {
     /* -------------------------------------------------------
      * Branding - edit these values to rebrand the site
      * ------------------------------------------------------- */
     --brand-primary: #D32229;
-    --brand-secondary: #D32229;         /* if no secondary colour, set to same as primary */        
+    --brand-secondary: #D32229;         /* if no secondary colour, set to same as primary */
+
     --brand-bg: #ffffff;                /* page background colour */
     --brand-footer-bg: #4d4d4d;         /* footer background colour */
     --brand-footer-text: #ffffff;       /* footer text colour */
     --brand-font: 'Open Sans', sans-serif; /* change @import URL above to use a different Google Font */
-}
 
-body {
-    font-family: var(--brand-font);
-    background-color: var(--brand-bg);
-}    
-.library-card {
-    @apply text-white p-6 rounded-lg shadow-lg w-80 flex flex-col relative;
-}
-
-.hover-effect {
-    transition: all 0.2s ease-in-out;
-}
-
-.hover-effect:hover {
-    @apply shadow-lg scale-105;
-}
-
-.divider {
-    height: 0.8rem;
-    width: 90px;
-    background-color: var(--brand-secondary);
-    margin-bottom: 1.5rem;
-    position: relative;
-}
-
-.grey-badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.07rem 0.4rem;
-    border-radius: 3rem;
-    font-size: 0.7rem;
-    background-color: #d4d4d4;
-    color: black;
-}
-
-.hover-border::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    height: 2px;
-    background-color: gray;
-    opacity: 0.5;
-}
-
-h3 {
-    @apply text-lg font-bold;
-}
-
-h2 {
-    @apply text-xl font-bold;
-}
-
-a {
-    color: var(--brand-primary);
-}
-
-nav a {
-    color: black;
-}
-
-footer a {
-    color: var(--brand-footer-text);
-}
-
-.language-dropdown-menu {
-    @apply absolute left-0 mt-2 p-0 rounded-md bg-white shadow-md flex-col text-black w-full z-50;
-}
-
-.dropdown-item {
-    @apply text-black flex items-center w-full first-of-type:rounded-t-md last-of-type:rounded-b-md px-0 pl-10 py-2.5 text-sm hover:bg-gray-50 disabled:text-gray-500;
-}
-
-.font-opensans {
-    font-family: 'open sans', 'sans serif';
-}
-
-.description p {
-
-@apply mt-4;
-}
-.description h2,.description h3{
-
-@apply mt-6;
-}
-.description ul li {
-
-@apply mt-1 list-disc ml-8 list-outside;
+    /** Additional colours for the Admin panel **/
+    --brand-success: #16A34A;
+    --brand-info: #2563EB;
+    --brand-warning: #FFB900;
 
 }
 
-.description ol li {
+@layer base {
+    body {
+        font-family: var(--brand-font);
+        background-color: var(--brand-bg);
+    }
 
-@apply mt-1 ml-8 list-decimal list-outside;
+    h3 {
+        @apply text-lg font-bold;
+    }
 
+    h2 {
+        @apply text-xl font-bold;
+    }
+
+    a {
+        color: var(--brand-primary);
+    }
+
+    nav a {
+        color: black;
+    }
+
+    footer a {
+        color: var(--brand-footer-text);
+    }
 }
 
-.description ol, .description ul {
+@layer components {
+    .library-card {
+        @apply text-white p-6 rounded-lg shadow-lg w-80 flex flex-col relative;
+    }
 
- 
+    .hover-effect {
+        transition: all 0.2s ease-in-out;
+    }
 
-@apply my-4;
+    .hover-effect:hover {
+        @apply shadow-lg scale-105;
+    }
 
+    .divider {
+        height: 0.8rem;
+        width: 90px;
+        background-color: var(--brand-secondary);
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
 
+    .grey-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.07rem 0.4rem;
+        border-radius: 3rem;
+        font-size: 0.7rem;
+        background-color: #d4d4d4;
+        color: black;
+    }
 
+    .hover-border::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 2px;
+        background-color: gray;
+        opacity: 0.5;
+    }
+
+    .language-dropdown-menu {
+        @apply absolute left-0 mt-2 p-0 rounded-md bg-white shadow-md flex-col text-black w-full z-50;
+    }
+
+    .dropdown-item {
+        @apply text-black flex items-center w-full first-of-type:rounded-t-md last-of-type:rounded-b-md px-0 pl-10 py-2.5 text-sm hover:bg-gray-50 disabled:text-gray-500;
+    }
+
+    .font-opensans {
+        font-family: 'open sans', 'sans serif';
+    }
+
+    .description p {
+        @apply mt-4;
+    }
+
+    .description h2, .description h3 {
+        @apply mt-6;
+    }
+
+    .description ul li {
+        @apply mt-1 list-disc ml-8 list-outside;
+    }
+
+    .description ol li {
+        @apply mt-1 ml-8 list-decimal list-outside;
+    }
+
+    .description ol, .description ul {
+        @apply my-4;
+    }
 }

@@ -4,14 +4,18 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use App\Models\Collection;
 use Filament\Tables\Table;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
+use Filament\Actions\BulkActionGroup;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Section;
-use Filament\Resources\Concerns\Translatable;
+use Filament\Schemas\Components\Section;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\CollectionResource\Pages;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
@@ -23,11 +27,11 @@ class CollectionResource extends Resource
 
     protected static ?string $model = Collection::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 TranslatableComboField::make('title')
                     ->icon('heroicon-o-exclamation-circle')
@@ -60,6 +64,7 @@ class CollectionResource extends Resource
                             Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
                                 ->label($label)
                                 ->collection("cover_image_{$locale}")
+                                ->visibility('public')
                                 ->disk(config('media-library.disk_name'))
                         )->values()->all()
                     ),
@@ -99,7 +104,7 @@ class CollectionResource extends Resource
                 Tables\Columns\SpatieMediaLibraryImageColumn::make('cover_image')
                     ->collection(fn(Pages\ListCollections $livewire) => 'cover_image_' . $livewire->activeLocale)
                     ->action(
-                        Tables\Actions\Action::make('view_image')
+                        Action::make('view_image')
                             ->modalHeading(fn(Collection $record, Pages\ListCollections $livewire) => $record->title . ' - Cover Image (' . $livewire->activeLocale . ')')
                             ->modalContent(fn(Collection $record, Pages\ListCollections $livewire) => new HtmlString('<img src="' . $record->getFirstMediaUrl('cover_image_' . $livewire->activeLocale) . '" class="w-full h-auto">'))
                             ->modalSubmitAction(false)
@@ -127,14 +132,14 @@ class CollectionResource extends Resource
                     ->sortable()
             ])
             ->filters([])
-            ->actions([
+            ->recordActions([
                 CommentsAction::make(),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    // Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // DeleteBulkAction::make(),
                 ]),
             ]);
     }

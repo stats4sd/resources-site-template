@@ -54,7 +54,7 @@ Route::group([
         return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     })->name('resources.show');
 
-    Route::get('/browse-all', BrowseAll::class)->name('browse-all');
+    Route::livewire('/browse-all', BrowseAll::class)->name('browse-all');
 
     Route::get('/collections/{id}', function ($id) {
         $collection = Collection::where('id', $id)->firstOrFail();

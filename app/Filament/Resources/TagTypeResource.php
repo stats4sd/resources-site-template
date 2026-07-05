@@ -4,13 +4,18 @@ namespace App\Filament\Resources;
 
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Forms;
-use Filament\Forms\Get;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables;
 use App\Models\TagType;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Filament\Actions\BulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
-use Filament\Resources\Concerns\Translatable;
+use Filament\Schemas\Components\Section;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\TagTypeResource\Pages;
 use App\Filament\Resources\TagTypeResource\RelationManagers;
 
@@ -20,11 +25,11 @@ class TagTypeResource extends Resource
 
     protected static ?string $model = TagType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Forms\Components\TextInput::make('slug')
                     ->label(__('Enter a unique slug'))
@@ -53,7 +58,7 @@ class TagTypeResource extends Resource
                     ->childField(Forms\Components\MarkdownEditor::class)
                     ->required(),
 
-                Forms\Components\Section::make('')
+                Section::make('')
                     ->schema([
                         Forms\Components\Checkbox::make('freetext')
                             ->label('Can the user add new tags of this type during Trove upload?')
@@ -113,17 +118,17 @@ class TagTypeResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
+            ->recordActions([
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\BulkAction::make('resetOrder')
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('resetOrder')
                         ->label('Reset to alphabetical')
                         ->icon('heroicon-o-arrow-path')
                         ->action(fn ($records) => $records->each->update(['order_column' => null]))
                         ->deselectRecordsAfterCompletion(),
-                    Tables\Actions\DeleteBulkAction::make(),
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

@@ -7,16 +7,19 @@ use App\Models\Trove;
 use App\Models\TroveType;
 use Filament\Forms;
 use Filament\Tables;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
 use Filament\Actions\Action;
+use Filament\Actions\DetachAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DetachBulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Resources\RelationManagers\Concerns\Translatable;
+use LaraZeus\SpatieTranslatable\Resources\RelationManagers\Concerns\Translatable;
 use Livewire\Attributes\Reactive;
 use Livewire\Component;
 
@@ -34,9 +37,9 @@ class TrovesRelationManager extends RelationManager
         return false;
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Forms\Components\TextInput::make('title')
                     ->required()
@@ -51,19 +54,20 @@ class TrovesRelationManager extends RelationManager
     {
         return $table
             ->headerActions([
-                Tables\Actions\Action::make('show_all_troves')
+                Action::make('show_all_troves')
                     ->label('Show All Troves')
                     ->action(fn(Component $livewire) => $livewire->dispatch('showAllTroves')),
             ])
             ->recordTitleAttribute('title')
             ->searchable()
+            ->deferFilters(false)
             ->heading('Troves in this Collection')
             ->columns(TroveResource::getTableColumns())
             ->filters(TroveResource::getTableFilters())
             ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
             ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
-            ->actions([
-                Tables\Actions\Action::make('preview_trove')
+            ->recordActions([
+                Action::make('preview_trove')
                     ->label('Preview on Front-end')
                     ->icon('heroicon-o-eye')
                     ->url(function (Trove $record) {
@@ -74,15 +78,15 @@ class TrovesRelationManager extends RelationManager
                     ->openUrlInNewTab()
                     ->action(null)
                     ->link(),
-                Tables\Actions\DetachAction::make()
+                DetachAction::make()
                     ->label('Remove trove from collection')
                     ->modalHeading('Remove trove from collection')
                     ->successNotificationTitle('Trove removed from collection'),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    // Tables\Actions\DeleteBulkAction::make(),
-                    Tables\Actions\DetachBulkAction::make()->label('Remove troves from collection'),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // DeleteBulkAction::make(),
+                    DetachBulkAction::make()->label('Remove troves from collection'),
                 ]),
             ])
             ->recordUrl(fn(Trove $record) => url('/resources/' . $record->slug))

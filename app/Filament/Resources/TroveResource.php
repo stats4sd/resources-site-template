@@ -9,14 +9,17 @@ use Filament\Tables;
 use App\Models\Trove;
 use App\Models\TagType;
 use Livewire\Component;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
+use Filament\Actions\BulkActionGroup;
 use Illuminate\Support\HtmlString;
 use Awcodes\Shout\Components\Shout;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Wizard;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Repeater;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
@@ -24,7 +27,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Resources\Concerns\Translatable;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\TroveResource\Pages;
 use App\Models\Scopes\PublishedScope;
 use Kainiklas\FilamentScout\Traits\InteractsWithScout;
@@ -39,7 +42,7 @@ class TroveResource extends Resource
 
     protected static ?string $model = Trove::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-duplicate';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-duplicate';
 
     protected static int $globalSearchResultsLimit = 100;
 
@@ -59,12 +62,12 @@ class TroveResource extends Resource
         return "title";
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
 
         $tagFields = self::getTagFields();
 
-        return $form
+        return $schema
             ->schema([
                 Wizard::make([
 
@@ -98,7 +101,7 @@ class TroveResource extends Resource
                                 )
                                 ->required(),
 
-                            Forms\Components\Section::make('Metadata')
+                            Section::make('Metadata')
                                 ->icon('heroicon-o-document-chart-bar')
                                 ->iconColor('primary')
                                 ->extraAttributes(['class' => 'grey-box'])
@@ -133,7 +136,7 @@ class TroveResource extends Resource
                     Wizard\Step::make('Tags')
                         ->icon('heroicon-m-tag')
                         ->schema([
-                            Forms\Components\Section::make('Tags')
+                            Section::make('Tags')
                                 ->icon('heroicon-m-tag')
                                 ->iconColor('primary')
                                 ->extraAttributes(['class' => 'grey-box'])
@@ -162,6 +165,7 @@ class TroveResource extends Resource
                                             ->downloadable()
                                             ->preserveFilenames()
                                             ->collection("content_{$locale}")
+                                            ->visibility('public')
                                             ->disk(config('media-library.disk_name'))
                                     )->values()->all()
                                 ),
@@ -216,6 +220,7 @@ class TroveResource extends Resource
                                         Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
                                             ->label($label)
                                             ->collection("cover_image_{$locale}")
+                                            ->visibility('public')
                                     )->values()->all()
                                 ),
                         ]),
@@ -245,13 +250,14 @@ class TroveResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->searchable()
+            ->deferFilters(false)
             ->columns(static::getTableColumns())
             ->filters(static::getTableFilters())
             ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
             ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
-            ->actions([
+            ->recordActions([
                 CommentsAction::make(),
-                Tables\Actions\Action::make('preview_trove')
+                Action::make('preview_trove')
                     ->label('Preview on Front-end')
                     ->icon('heroicon-o-eye')
                     ->url(function (Trove $record) {
@@ -262,11 +268,11 @@ class TroveResource extends Resource
                     ->openUrlInNewTab()
                     ->action(null)
                     ->link(),
-                Tables\Actions\EditAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    // Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // DeleteBulkAction::make(),
                 ]),
             ]);
     }

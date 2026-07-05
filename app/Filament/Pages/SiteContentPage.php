@@ -5,11 +5,15 @@ namespace App\Filament\Pages;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use App\Models\SiteContent;
 use Filament\Actions\Action as PageAction;
-use Filament\Forms\Components\Actions\Action as FormAction;
+use Filament\Actions\Action as FormAction;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Form;
+use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -17,13 +21,11 @@ class SiteContentPage extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string $view = 'filament.pages.site-content';
-
     protected static ?string $navigationLabel = 'Site Content';
 
     protected static ?string $title = 'Site Content';
 
-    protected static ?string $navigationIcon = 'heroicon-o-pencil-square';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-pencil-square';
 
     public array $data = [];
 
@@ -38,11 +40,11 @@ class SiteContentPage extends Page implements HasForms
         $this->form->fill($formData);
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
-                Forms\Components\Section::make('Home Page')
+                Section::make('Home Page')
                     ->collapsible()
                     ->collapsed()
                     ->headerActions([
@@ -76,7 +78,7 @@ class SiteContentPage extends Page implements HasForms
                             ->extraAttributes(['class' => 'grey-box'])
                             ->childField(Forms\Components\Textarea::class),
                     ]),
-                Forms\Components\Section::make('Library Page')
+                Section::make('Library Page')
                     ->collapsible()
                     ->collapsed()
                     ->headerActions([
@@ -124,6 +126,21 @@ class SiteContentPage extends Page implements HasForms
                     ]),
             ])
             ->statePath('data');
+    }
+
+    // v5 renders the page through content(); wrap the form schema in a submit form
+    // with the Save action in its footer (replaces the old site-content.blade view).
+    public function content(Schema $schema): Schema
+    {
+        return $schema
+            ->components([
+                Form::make([EmbeddedSchema::make('form')])
+                    ->id('form')
+                    ->livewireSubmitHandler('save')
+                    ->footer([
+                        Actions::make($this->getFormActions())->key('form-actions'),
+                    ]),
+            ]);
     }
 
     public function save(): void

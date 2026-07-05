@@ -2,8 +2,7 @@
 
 namespace App\Filament\Pages;
 
-class Login extends \Filament\Pages\Auth\Login
+class Login extends \Filament\Auth\Pages\Login
 {
-
-    protected static string $view = 'filament.pages.login';
+    //
 }
