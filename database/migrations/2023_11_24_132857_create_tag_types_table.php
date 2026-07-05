@@ -17,6 +17,9 @@ return new class extends Migration
             $table->json('label');
             $table->json('description');
             $table->boolean('freetext');
+            $table->boolean('show_in_filter')->default(false);
+            $table->boolean('use_custom_tag_order')->default(false);
+            $table->unsignedInteger('order_column')->nullable();
             $table->timestamps();
         });
     }

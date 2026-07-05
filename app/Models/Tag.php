@@ -16,6 +16,7 @@ class Tag extends Model
     protected $casts = [
         'id' => 'integer',
         'type_id' => 'integer',
+        'order_column' => 'integer',
     ];
 
     public array $translatable = [
@@ -32,8 +33,4 @@ class Tag extends Model
         return $this->belongsTo(TagType::class, 'type_id');
     }
 
-    public function hubs()
-    {
-        return $this->belongsToMany(Hub::class, 'hub_tag');
-    }
 }

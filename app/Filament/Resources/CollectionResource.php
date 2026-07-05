@@ -4,30 +4,22 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
-use App\Models\Trove;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use App\Models\Collection;
 use Filament\Tables\Table;
-use App\Models\Organisation;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Resource;
+use Filament\Actions\BulkActionGroup;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Wizard;
-use Filament\Forms\Components\Section;
-use Filament\Tables\Filters\SelectFilter;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\ImageEntry;
-use Filament\Resources\Concerns\Translatable;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Schemas\Components\Section;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\CollectionResource\Pages;
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
 use App\Filament\Resources\CollectionResource\RelationManagers;
-use Filament\Infolists\Components\SpatieMediaLibraryImageEntry;
-use App\Filament\Resources\CollectionResource\Pages\ViewCollection;
 
 class CollectionResource extends Resource
 {
@@ -35,11 +27,11 @@ class CollectionResource extends Resource
 
     protected static ?string $model = Collection::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-squares-2x2';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 TranslatableComboField::make('title')
                     ->icon('heroicon-o-exclamation-circle')
@@ -66,45 +58,27 @@ class CollectionResource extends Resource
                     ->extraAttributes(['class' => 'grey-box'])
                     ->heading(__('Cover Image'))
                     ->description(__('Add a cover image for the resource. This will be displayed on the front-end.'))
-                    ->columns(3)
-                    ->schema([
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_en')
-                            ->label('English')
-                            ->collection('cover_image_en')
-                            ->disk('s3'),
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_es')
-                            ->label('Spanish')
-                            ->collection('cover_image_es')
-                            ->disk('s3'),
-                        Forms\Components\SpatieMediaLibraryFileUpload::make('cover_image_fr')
-                            ->label('French')
-                            ->collection('cover_image_fr')
-                            ->disk('s3'),
-                    ]),
+                    ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
+                    ->schema(
+                        collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
+                            Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
+                                ->label($label)
+                                ->collection("cover_image_{$locale}")
+                                ->visibility('public')
+                                ->disk(config('media-library.disk_name'))
+                        )->values()->all()
+                    ),
                 Forms\Components\Hidden::make('uploader_id')
                     ->default(Auth::id()),
 
-                Forms\Components\Section::make('Metadata')
-                    ->icon('heroicon-o-document-chart-bar')
-                    ->iconColor('primary')
-                    ->extraAttributes(['class' => 'grey-box'])
-                    ->schema([
+                // Forms\Components\Section::make('Metadata')
+                //     ->icon('heroicon-o-document-chart-bar')
+                //     ->iconColor('primary')
+                //     ->extraAttributes(['class' => 'grey-box'])
+                //     ->schema([
 
-                        Forms\Components\Select::make('organisation_id')
-                            ->label('Who is the owner of this collection?')
-                            ->placeholder('Select the organisation that owns this collection')
-                            ->default(function () {
-                                $defaultOrg = Organisation::firstWhere('name', 'Stats4SD');
-                                return $defaultOrg?->id ?? null;
-                            })
-                            ->options(function () {
-                                return \App\Models\Organisation::pluck('name', 'id');
-                            })
-                            ->searchable()
-                            ->required(),
-
-                        Forms\Components\Hidden::make('uploader_id')->default(Auth::user()->id),
-                    ]),
+                //         // Forms\Components\Hidden::make('uploader_id')->default(Auth::user()->id),
+                //     ]),
 
                 Section::make('Publishing')
                     ->icon('heroicon-o-globe-alt')
@@ -125,16 +99,12 @@ class CollectionResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('organisation.name')
-                    ->label('Owner')
-                    ->badge()
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('title')
                     ->wrap(),
                 Tables\Columns\SpatieMediaLibraryImageColumn::make('cover_image')
                     ->collection(fn(Pages\ListCollections $livewire) => 'cover_image_' . $livewire->activeLocale)
                     ->action(
-                        Tables\Actions\Action::make('view_image')
+                        Action::make('view_image')
                             ->modalHeading(fn(Collection $record, Pages\ListCollections $livewire) => $record->title . ' - Cover Image (' . $livewire->activeLocale . ')')
                             ->modalContent(fn(Collection $record, Pages\ListCollections $livewire) => new HtmlString('<img src="' . $record->getFirstMediaUrl('cover_image_' . $livewire->activeLocale) . '" class="w-full h-auto">'))
                             ->modalSubmitAction(false)
@@ -161,18 +131,15 @@ class CollectionResource extends Resource
                     ->falseIcon('heroicon-o-x-mark')
                     ->sortable()
             ])
-            ->filters([
-                SelectFilter::make('owner')
-                    ->relationship('organisation', 'name')
-            ])
-            ->actions([
+            ->filters([])
+            ->recordActions([
                 CommentsAction::make(),
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    // Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    // DeleteBulkAction::make(),
                 ]),
             ]);
     }

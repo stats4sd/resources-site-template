@@ -4,16 +4,19 @@ namespace App\Filament\Resources;
 
 use App\Filament\Translatable\Form\TranslatableComboField;
 use Filament\Forms;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables;
 use App\Models\TagType;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
-use Forms\Components\Split;
+use Filament\Actions\BulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
-use Illuminate\Database\Eloquent\Builder;
-use Filament\Resources\Concerns\Translatable;
+use Filament\Schemas\Components\Section;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\TagTypeResource\Pages;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Resources\TagTypeResource\RelationManagers;
 
 class TagTypeResource extends Resource
@@ -22,11 +25,11 @@ class TagTypeResource extends Resource
 
     protected static ?string $model = TagType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Forms\Components\TextInput::make('slug')
                     ->label(__('Enter a unique slug'))
@@ -55,13 +58,36 @@ class TagTypeResource extends Resource
                     ->childField(Forms\Components\MarkdownEditor::class)
                     ->required(),
 
-                Forms\Components\Section::make('')
+                Section::make('')
                     ->schema([
                         Forms\Components\Checkbox::make('freetext')
                             ->label('Can the user add new tags of this type during Trove upload?')
                             ->hintIcon(
                                 icon: 'heroicon-m-question-mark-circle',
-                                tooltip: 'Most types should not have this enabled, to prevent accidental duplication / mistyping during Trove upload. But this option is available for e.g. "Keywords" or "Authors", where new tags are likely to be needed.'),
+                                tooltip: 'Most types should not have this enabled, to prevent accidental duplication / mistyping during Trove upload. But this option is available for e.g. "Authors", where new tags are likely to be needed.'),
+                        Forms\Components\Toggle::make('show_in_filter')
+                            ->label('Show in filter bar')
+                            ->hintIcon(
+                                icon: 'heroicon-m-question-mark-circle',
+                                tooltip: 'When enabled, visitors can filter resources by tags of this type. Within a type, selecting multiple tags uses OR logic. Between types, AND logic applies.')
+                            ->live()
+                            ->afterStateUpdated(function ($state, $record) {
+                                if ($record) {
+                                    $record->update(['show_in_filter' => $state]);
+                                }
+                            }),
+                        Forms\Components\Toggle::make('use_custom_tag_order')
+                            ->label('Use custom tag order? (default: alphabetical)')
+                            ->hintIcon(
+                                icon: 'heroicon-m-question-mark-circle',
+                                tooltip: 'When enabled, you can drag tags into a custom order in the "Filter order" tab below. Otherwise tags appear alphabetically.')
+                            ->hidden(fn (Get $get) => !$get('show_in_filter'))
+                            ->live()
+                            ->afterStateUpdated(function ($state, $record) {
+                                if ($record) {
+                                    $record->update(['use_custom_tag_order' => $state]);
+                                }
+                            }),
                     ]),
             ])->columns(1);
     }
@@ -76,20 +102,33 @@ class TagTypeResource extends Resource
                     ->boolean()
                     ->trueColor('success')
                     ->falseColor('warning'),
-                // Tables\Columns\TextColumn::make('tags_count')
-                //                 ->counts('tags')
-                //                 ->label('# Tags')
-                //                 ->sortable(),
+                Tables\Columns\IconColumn::make('show_in_filter')
+                    ->label('Show in filter bar')
+                    ->boolean()
+                    ->trueColor('success')
+                    ->falseColor('gray'),
+                Tables\Columns\TextColumn::make('tags_count')
+                                ->counts('tags')
+                                ->label('# Tags'),
             ])
+            ->reorderable('order_column')
+            ->defaultSort('order_column')
+            ->description('Tag types marked "Show in filter bar" appear as filter sections on the Browse Library page. Click the ⇅ button then drag to set the order they appear in. Note that the order saves automatically. Click Edit to control ordering of tags within a type.')
+            ->headerActions([])
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
+            ->recordActions([
+                EditAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('resetOrder')
+                        ->label('Reset to alphabetical')
+                        ->icon('heroicon-o-arrow-path')
+                        ->action(fn ($records) => $records->each->update(['order_column' => null]))
+                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -97,7 +136,7 @@ class TagTypeResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\TagsRelationManager::class,
         ];
     }
 
@@ -105,6 +144,7 @@ class TagTypeResource extends Resource
     {
         return [
             'index' => Pages\ListTagTypes::route('/'),
+            'edit'  => Pages\EditTagType::route('/{record}/edit'),
         ];
     }
 }

@@ -3,34 +3,23 @@
 namespace App\Filament\Translatable\Form;
 
 use Closure;
-use Filament\Forms\Components\Component;
-use Filament\Forms\Components\Concerns;
-use Filament\Forms\Components\Contracts;
 use Filament\Forms\Components\Field;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
-use Filament\Forms\Components\TextInput;
-use Filament\Infolists\Components\Concerns\CanBeCollapsed;
-use Filament\Support\Concerns\HasDescription;
+use Filament\Schemas\Components\Concerns\CanBeCollapsed;
+use Filament\Schemas\Components\Concerns\CanBeCompact;
+use Filament\Schemas\Components\Concerns\HasDescription;
+use Filament\Schemas\Components\Concerns\HasHeading;
 use Filament\Support\Concerns\HasExtraAlpineAttributes;
-use Filament\Support\Concerns\HasHeading;
 use Filament\Support\Concerns\HasIcon;
 use Filament\Support\Concerns\HasIconColor;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
-use Spatie\Color\Contrast;
 
 //
-class TranslatableComboField extends Field implements Contracts\HasHeaderActions, Contracts\HasFooterActions
+class TranslatableComboField extends Field
 {
 
-    use Concerns\CanBeCollapsed;
-    use Concerns\CanBeCompacted;
-    use Concerns\HasFooterActions;
-    use Concerns\HasHeaderActions;
+    use CanBeCollapsed;
+    use CanBeCompact;
     use HasDescription;
     use HasExtraAlpineAttributes;
     use HasHeading;
@@ -138,7 +127,17 @@ class TranslatableComboField extends Field implements Contracts\HasHeaderActions
                 ->toArray();
         }
 
-        if($childField instanceof Field && ! $childField->isDehydrated()) {
+        // Propagate an explicitly non-dehydrated prototype field onto the combo itself.
+        // isDehydrated() returns false early for non-dehydrated fields; only a dehydrated
+        // field reaches the container-dependent visibility check, which throws on a detached
+        // prototype in Filament 5 — treat that (the default) as dehydrated and do nothing.
+        try {
+            $childIsDehydrated = ! ($childField instanceof Field) || $childField->isDehydrated();
+        } catch (\Throwable) {
+            $childIsDehydrated = true;
+        }
+
+        if (! $childIsDehydrated) {
             $this->dehydrated(false);
         }
 
@@ -148,19 +147,23 @@ class TranslatableComboField extends Field implements Contracts\HasHeaderActions
 
     public function required(bool|Closure $condition = true): static
     {
+        // Read the raw stored child components rather than getChildComponents(), which in
+        // Filament 5 resolves a Schema needing an initialized container that isn't available
+        // at schema-definition time (when required() is chained on).
+        $children = $this->getDefaultChildComponents();
 
         // if the child components exist before required() is called, apply the required rule to each child component.
-        if ($condition && $this->getChildComponents()) {
+        if ($condition && is_array($children) && count($children)) {
 
             // update child components with required rule
             $this->childComponents(
-                collect($this->getChildComponents())
-                    ->map(fn(Field $field) => $this->makeFieldRequiredWithoutAll($field, $this->getChildComponents()))
+                collect($children)
+                    ->map(fn(Field $field) => $this->makeFieldRequiredWithoutAll($field, $children))
                     ->toArray()
             );
         }
 
-        return parent::required();
+        return parent::required($condition);
     }
 
     public function makeFieldRequiredWithoutAll(Field $field, $localeFields)

@@ -5,41 +5,60 @@ namespace App\Livewire;
 use App\Models\Trove;
 use Livewire\Component;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Actions\Action;
 use Livewire\Attributes\Reactive;
-use Illuminate\Support\HtmlString;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Tables\Actions\BulkAction;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Actions\BulkAction;
+use Filament\Actions\Concerns\InteractsWithActions;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Notifications\Notification;
 use Filament\Tables\Enums\FiltersLayout;
 use App\Filament\Resources\TroveResource;
-use Filament\Actions\Contracts\HasRecord;
 use Illuminate\Database\Eloquent\Builder;
 use App\Filament\Resources\CollectionResource;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Support\Concerns\EvaluatesClosures;
 use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\SpatieLaravelTranslatableContentDriver;
-use Filament\Resources\Concerns\HasActiveLocaleSwitcher;
+use LaraZeus\SpatieTranslatable\SpatieTranslatableContentDriver;
 use Filament\Support\Contracts\TranslatableContentDriver;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
-use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 
-class AllTrovesTable extends Component implements HasTable, HasForms
+class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
 {
     use InteractsWithTable;
     use InteractsWithForms;
+    use InteractsWithActions;
     use EvaluatesClosures;
 
-    use InteractsWithRecord;
+    // InteractsWithRecord is kept only for the $record property + getRecord()/hasRecord()
+    // (the pinned Collection). Its action-default overrides are page-context (they resolve to
+    // that Collection or call parent::) and are wrong for per-row table actions on Troves —
+    // defer every colliding method to InteractsWithActions.
+    use InteractsWithRecord {
+        InteractsWithActions::afterActionCalled insteadof InteractsWithRecord;
+        InteractsWithActions::getMountedActionSchemaModel insteadof InteractsWithRecord;
+        InteractsWithActions::getDefaultActionRecord insteadof InteractsWithRecord;
+        InteractsWithActions::getDefaultActionRecordTitle insteadof InteractsWithRecord;
+        InteractsWithActions::getDefaultActionSuccessRedirectUrl insteadof InteractsWithRecord;
+    }
 
     protected static string $resource = CollectionResource::class;
 
     #[Reactive]
     public string $activeLocale;
+
+    /**
+     * A plain Livewire component (not a Filament-native one) loses the current panel
+     * on subsequent /livewire/update requests, which would re-enable PublishedScope
+     * mid-interaction. Pin it here so unpublished/draft troves stay visible across
+     * search/filter/paginate.
+     */
+    public function booted(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+    }
 
     public function render()
     {
@@ -70,7 +89,8 @@ class AllTrovesTable extends Component implements HasTable, HasForms
             ->filters(TroveResource::getTableFilters())
             ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
             ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
-            ->actions([
+            ->deferFilters(false)
+            ->recordActions([
 
                 Action::make('attach_trove')
                     ->label('Add Trove to Collection')
@@ -113,7 +133,7 @@ class AllTrovesTable extends Component implements HasTable, HasForms
                     ->link(),
             ])
             ->recordUrl(fn(Trove $record) => url('/resources/' . $record->slug))
-            ->bulkActions([
+            ->toolbarActions([
                 BulkAction::make('attach')
                     ->label('Add Trove(s) to Collection')
                     ->action(fn(\Illuminate\Database\Eloquent\Collection $records) => $this->getRecord()->troves()->syncWithoutDetaching($records)),
@@ -153,7 +173,7 @@ class AllTrovesTable extends Component implements HasTable, HasForms
      */
     public function getFilamentTranslatableContentDriver(): ?string
     {
-        return SpatieLaravelTranslatableContentDriver::class;
+        return SpatieTranslatableContentDriver::class;
     }
 
 

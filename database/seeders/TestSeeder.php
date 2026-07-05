@@ -2,14 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\TagType;
-use App\Models\Trove;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use Parallax\FilamentComments\Models\FilamentComment;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class TestSeeder extends Seeder
 {

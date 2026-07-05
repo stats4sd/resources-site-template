@@ -14,50 +14,13 @@ class TagTypeSeeder extends Seeder
             'slug' => 'topics',
             'label' => [
                 'en' => 'Topics',
+                'es' => 'Temas',
                 'fr' => 'Sujets',
             ],
             'description' => [
                 'en' => 'Topics of interest',
+                'es' => 'Temas de interés',
                 'fr' => 'Sujets d\'intérêt',
-            ],
-            'freetext' => false,
-        ]);
-
-        TagType::create([
-            'slug' => 'keywords',
-            'label' => [
-                'en' => 'Keywords',
-                'fr' => 'Mots-clés',
-            ],
-            'description' => [
-                'en' => 'Keywords for search',
-                'fr' => 'Mots-clés pour la recherche',
-            ],
-            'freetext' => true,
-        ]);
-
-        TagType::create([
-            'slug' => 'audiences',
-            'label' => [
-                'en' => 'Audiences',
-                'fr' => 'Audiences',
-            ],
-            'description' => [
-                'en' => 'Target audiences',
-                'fr' => 'Public cible',
-            ],
-            'freetext' => false,
-        ]);
-
-        TagType::create([
-            'slug' => 'themes',
-            'label' => [
-                'en' => 'Themes',
-                'fr' => 'Thèmes',
-            ],
-            'description' => [
-                'en' => 'Themes of interest',
-                'fr' => 'Thèmes d\'intérêt',
             ],
             'freetext' => false,
         ]);
@@ -66,10 +29,12 @@ class TagTypeSeeder extends Seeder
             'slug' => 'authors',
             'label' => [
                 'en' => 'Authors',
+                'es' => 'Autores',
                 'fr' => 'Auteurs',
             ],
             'description' => [
                 'en' => 'Authors of content',
+                'es' => 'Autores del contenido',
                 'fr' => 'Auteurs de contenu',
             ],
             'freetext' => true,
@@ -79,10 +44,12 @@ class TagTypeSeeder extends Seeder
             'slug' => 'locations',
             'label' => [
                 'en' => 'Locations',
+                'es' => 'Ubicaciones',
                 'fr' => 'Lieux',
             ],
             'description' => [
                 'en' => 'Geographic locations',
+                'es' => 'Ubicaciones geográficas',
                 'fr' => 'Lieux géographiques',
             ],
             'freetext' => false,

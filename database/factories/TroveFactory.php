@@ -2,38 +2,75 @@
 
 namespace Database\Factories;
 
+use App\Models\Trove;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
-use App\Models\Trove;
-use App\Models\Type;
-use App\Models\User;
 
+/**
+ * @extends Factory<Trove>
+ */
 class TroveFactory extends Factory
 {
-    /**
-     * The name of the factory's corresponding model.
-     *
-     * @var string
-     */
     protected $model = Trove::class;
 
-    /**
-     * Define the model's default state.
-     */
     public function definition(): array
     {
+        // title/description are JSON-translatable (Spatie): assigning an array keyed
+        // by locale stores one JSON blob. slug is intentionally omitted so the model's
+        // `saving` hook generates it (use ->withSlug() to pin one).
         return [
-            'title' => $this->faker->sentence(4),
-            'slug' => $this->faker->slug,
-            'description' => $this->faker->text,
-            'uploader_id' => User::factory(),
+            'title' => ['en' => rtrim($this->faker->unique()->sentence(4), '.')],
+            'description' => ['en' => $this->faker->paragraph()],
+            'trove_type_id' => null,
+            'source' => $this->faker->boolean(),
             'creation_date' => $this->faker->date(),
-            'type_id' => Type::factory(),
-            'cover_image' => $this->faker->regexify('[A-Za-z0-9]{400}'),
-            'public' => $this->faker->boolean,
-            'youtube' => $this->faker->regexify('[A-Za-z0-9]{400}'),
-            'source' => $this->faker->boolean,
-            'download_count' => $this->faker->numberBetween(-10000, 10000),
+            'uploader_id' => User::factory(),
+            'external_links' => null,
+            'youtube_links' => null,
+            'published_at' => null,
         ];
+    }
+
+    /** Pin an explicit slug (bypasses the auto-generation hook). */
+    public function withSlug(string $slug): static
+    {
+        return $this->state(fn () => ['slug' => $slug]);
+    }
+
+    /** A published canonical row. */
+    public function published(): static
+    {
+        return $this->state(fn () => ['published_at' => now()]);
+    }
+
+    /** A shadow draft of the given canonical row (published_id set, published_at null). */
+    public function draftOf(Trove $canonical): static
+    {
+        return $this->state(fn () => [
+            'published_id' => $canonical->id,
+            'published_at' => null,
+        ]);
+    }
+
+    /** An outstanding review request (in review, not yet reviewed). */
+    public function inReview(): static
+    {
+        return $this->state(fn () => [
+            'review_requested_at' => now(),
+            'reviewed_at' => null,
+            'reviewer_id' => User::factory(),
+            'requester_id' => User::factory(),
+        ]);
+    }
+
+    /** A completed review (reviewed_at stamped). */
+    public function reviewed(): static
+    {
+        return $this->state(fn () => [
+            'review_requested_at' => now()->subDay(),
+            'reviewed_at' => now(),
+            'reviewer_id' => User::factory(),
+        ]);
     }
 }

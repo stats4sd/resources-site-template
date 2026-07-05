@@ -3,8 +3,6 @@
 use App\Models\Trove;
 use App\Models\Collection;
 use App\Livewire\BrowseAll;
-use App\Livewire\Resources;
-use App\Livewire\Collections;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,8 +34,9 @@ Route::group([
             return;
         }
 
-        $resource = Trove::withDrafts()->where('slug', $slug)->firstOrFail();
-        return view('trove', compact('resource'));
+        // Show the working version — the shadow draft when one exists, else the live/working row.
+        $resource = Trove::withDrafts()->workingVersions()->where('slug', $slug)->firstOrFail();
+        return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     });
 
     Route::get('/resources/{troveKey}', function ($troveKey) {
@@ -52,16 +51,10 @@ Route::group([
             return redirect()->route('resources.show', ['troveKey' => $resource->slug], 301);
         }
     
-        return view('trove', ['resource' => $resource]);
+        return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     })->name('resources.show');
 
-    Route::get('/resources', Resources::class)->name('resources');
-    Route::get('/collections', Collections::class)->name('collections');
-    Route::get('/browse-all', BrowseAll::class)->name('browse-all');
-
-    Route::get('/theme-pages', function () {
-        return view('theme-pages');
-    })->name('theme-pages');
+    Route::livewire('/browse-all', BrowseAll::class)->name('browse-all');
 
     Route::get('/collections/{id}', function ($id) {
         $collection = Collection::where('id', $id)->firstOrFail();
@@ -72,22 +65,5 @@ Route::group([
         $trove = Trove::where('slug', $slug)->firstOrFail();
         return $trove->downloadAllFilesAsZip();
     })->name('trove.download.zip');
-
-    Route::get('/frn', function () {
-        return view('frn');
-    })->name('frn');
-
-    Route::get('/ifa', function () {
-        return view('ifa');
-    })->name('ifa');
-
-    Route::get('/ifastudent', function () {
-        return view('ifastudent');
-    })->name('ifastudent');
-
-    Route::get('/ifaabout', function () {
-        return view('ifaabout');
-    })->name('ifaabout');
-
 
 });

@@ -2,8 +2,7 @@
 
 namespace App\Filament\Translatable;
 
-use Filament\Resources\Concerns\HasActiveLocaleSwitcher;
-use Filament\Resources\Pages\ListRecords\Concerns\Translatable;
+use LaraZeus\SpatieTranslatable\Resources\Pages\ListRecords\Concerns\Translatable;
 
 trait TranslatableListView
 {

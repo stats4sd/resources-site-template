@@ -7,6 +7,7 @@ use App\Filament\Translatable\TranslatableListView;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Resources\Pages\ManageRecords;
+use LaraZeus\SpatieTranslatable\Actions\LocaleSwitcher;
 
 class ListTags extends ManageRecords
 {
@@ -19,7 +20,7 @@ class ListTags extends ManageRecords
         return [
             Actions\CreateAction::make()
             ->modalHeading(''),
-            Actions\LocaleSwitcher::make(),
+            LocaleSwitcher::make(),
         ];
     }
 }

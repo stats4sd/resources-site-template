@@ -4,15 +4,19 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use App\Models\TroveType;
 use Filament\Tables\Table;
+use Filament\Actions\EditAction;
+use Filament\Actions\CreateAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
 use Filament\Forms\Components\Hidden;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Resources\Concerns\Translatable;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\TroveTypeResource\Pages;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use App\Filament\Translatable\Form\TranslatableComboField;
@@ -24,13 +28,13 @@ class TroveTypeResource extends Resource
 
     protected static ?string $model = TroveType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
     // protected static ?string $navigationLabel = 'Trove Types';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 TranslatableComboField::make('label')
                     ->label(__('Trove Type'))
@@ -41,8 +45,6 @@ class TroveTypeResource extends Resource
                     ->columns(3)
                     ->childField(Forms\Components\TextInput::class)
                     ->required(),
-                Forms\Components\Hidden::make('order')
-                    ->default(fn() => (TroveType::max('order') ?? 0) + 1),
             ])->columns(1);
     }
 
@@ -59,19 +61,17 @@ class TroveTypeResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()
+            ->recordActions([
+                EditAction::make()
                     ->modalHeading(''),
             ])
-            ->defaultSort('order')
-            ->reorderable('order')
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ])
             ->emptyStateActions([
-                Tables\Actions\CreateAction::make()
+                CreateAction::make()
                     ->modalHeading(''),
             ]);
     }

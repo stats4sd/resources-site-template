@@ -1,0 +1,6 @@
+/* Self-hosted Inter font (replaces Filament's default Bunny Fonts CDN request).
+   Weights match what Filament's BunnyFontProvider previously loaded: 400, 500, 600, 700. */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
