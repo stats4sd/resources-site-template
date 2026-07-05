@@ -5,7 +5,7 @@ namespace App\Filament\Resources\TagTypeResource\Pages;
 use App\Filament\Resources\TagTypeResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use LaraZeus\SpatieTranslatable\Resources\Pages\EditRecord\Concerns\Translatable;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 
 class EditTagType extends EditRecord
 {

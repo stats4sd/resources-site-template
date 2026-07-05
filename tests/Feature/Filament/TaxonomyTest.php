@@ -61,6 +61,27 @@ it('resets tag type ordering to alphabetical via the bulk action', function () {
         ->and($b->fresh()->order_column)->toBeNull();
 });
 
+it('keeps translatable JSON flat per-locale when saving the edit form', function () {
+    // Regression guard: EditTagType briefly used the lara-zeus page-level
+    // Translatable trait, whose handleRecordUpdate() nests the whole locale
+    // dict from TranslatableComboField under the active locale key.
+    config(['app.locales' => ['en' => 'English', 'fr' => 'French']]);
+
+    $tagType = TagType::factory()->create();
+
+    Livewire::test(EditTagType::class, ['record' => $tagType->getKey()])
+        ->fillForm([
+            'label' => ['en' => 'Theme', 'fr' => 'Thème'],
+            'description' => ['en' => 'Groups by theme', 'fr' => 'Regroupe par thème'],
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $fresh = $tagType->fresh();
+    expect($fresh->getTranslations('label'))->toBe(['en' => 'Theme', 'fr' => 'Thème'])
+        ->and($fresh->getTranslations('description'))->toBe(['en' => 'Groups by theme', 'fr' => 'Regroupe par thème']);
+});
+
 it('persists the show_in_filter toggle from the edit form', function () {
     $tagType = TagType::factory()->create(['show_in_filter' => false]);
 
