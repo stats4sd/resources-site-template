@@ -4,18 +4,18 @@ namespace App\Filament\Pages;
 
 use App\Filament\Translatable\Form\TranslatableComboField;
 use App\Models\SiteContent;
-use Filament\Actions\Action as PageAction;
 use Filament\Actions\Action as FormAction;
+use Filament\Actions\Action as PageAction;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\Form;
-use Filament\Schemas\Components\EmbeddedSchema;
-use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Form;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class SiteContentPage extends Page implements HasForms
 {
@@ -112,7 +112,7 @@ class SiteContentPage extends Page implements HasForms
                             ->extraAttributes(['class' => 'grey-box'])
                             ->childField(Forms\Components\Textarea::class),
                     ]),
-                Forms\Components\Section::make('Footer')
+                Section::make('Footer')
                     ->collapsible()
                     ->collapsed()
                     ->schema([
