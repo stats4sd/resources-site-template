@@ -7,13 +7,13 @@ use Filament\Actions\Action as PageAction;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\Form;
-use Filament\Schemas\Components\EmbeddedSchema;
-use Filament\Schemas\Components\Section;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\EmbeddedSchema;
+use Filament\Schemas\Components\Form;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class SiteOptionsPage extends Page implements HasForms
 {
@@ -27,11 +27,17 @@ class SiteOptionsPage extends Page implements HasForms
 
     public array $data = [];
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public function mount(): void
     {
         $settings = SiteSetting::instance();
         $this->form->fill([
             'show_language_filter' => $settings->show_language_filter,
+            'open_registration' => $settings->open_registration,
             'locales' => $settings->locales ?? [],
         ]);
     }
@@ -45,6 +51,9 @@ class SiteOptionsPage extends Page implements HasForms
                         Forms\Components\Toggle::make('show_language_filter')
                             ->label('Show language filter in Browse Library')
                             ->helperText('When disabled, the language filter is hidden even if multiple languages are configured.'),
+                        Forms\Components\Toggle::make('open_registration')
+                            ->label('Allow open registration')
+                            ->helperText('When enabled, anyone can register from the login page. New registrants get read-only (viewer) access until an admin promotes them. When disabled, registration is invite-only.'),
                     ]),
                 Section::make('Languages')
                     ->schema([
@@ -93,6 +102,7 @@ class SiteOptionsPage extends Page implements HasForms
         $settings = SiteSetting::instance();
         $settings->update([
             'show_language_filter' => $data['show_language_filter'],
+            'open_registration' => $data['open_registration'],
             'locales' => $data['locales'],
         ]);
         Notification::make()->success()->title('Settings saved')->send();

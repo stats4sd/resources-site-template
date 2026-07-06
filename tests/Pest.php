@@ -2,7 +2,10 @@
 
 use App\Models\Trove;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\PermissionRegistrar;
+use Tests\TestCase;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,9 +29,13 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 */
 
 uses(
-    Tests\TestCase::class,
+    TestCase::class,
     RefreshDatabase::class,
-)->in('Feature', 'Unit');
+)->beforeEach(function () {
+    // The array cache driver persists spatie's role/permission cache across tests in the
+    // same process; forget it so each test resolves roles against its own migrated DB state.
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+})->in('Feature', 'Unit');
 
 /*
 |--------------------------------------------------------------------------
@@ -37,12 +44,35 @@ uses(
 */
 
 /**
- * Authenticate as a freshly created user. Because User::canAccessPanel() returns
- * true unconditionally, this user can reach the Filament admin panel too.
+ * Authenticate as an admin (the historical behaviour: full access to everything). Passing
+ * an existing user authenticates it as-is without touching its roles.
  */
 function actingAsAdmin(?User $user = null): User
 {
-    $user = $user ?? User::factory()->create();
+    $user = $user ?? User::factory()->admin()->create();
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
+ * Authenticate as an editor — the "regular user" with full content CRUD but no access to
+ * user management or site settings.
+ */
+function actingAsEditor(?User $user = null): User
+{
+    $user = $user ?? User::factory()->editor()->create();
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
+ * Authenticate as a read-only viewer (what open registration grants).
+ */
+function actingAsViewer(?User $user = null): User
+{
+    $user = $user ?? User::factory()->viewer()->create();
     test()->actingAs($user);
 
     return $user;
@@ -79,7 +109,7 @@ function draftTrove(array $attributes = []): Trove
  */
 function usePublicContext(): void
 {
-    \Filament\Facades\Filament::setCurrentPanel(null);
+    Filament::setCurrentPanel(null);
 }
 
 /**

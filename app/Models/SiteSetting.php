@@ -9,10 +9,11 @@ class SiteSetting extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['show_language_filter', 'locales'];
+    protected $fillable = ['show_language_filter', 'open_registration', 'locales'];
 
     protected $casts = [
         'show_language_filter' => 'boolean',
+        'open_registration' => 'boolean',
         'locales' => 'array',
     ];
 
@@ -20,6 +21,7 @@ class SiteSetting extends Model
     {
         return static::firstOrCreate(['id' => 1], [
             'show_language_filter' => true,
+            'open_registration' => false,
             'locales' => [
                 ['code' => 'en', 'label' => 'English'],
             ],
@@ -29,8 +31,8 @@ class SiteSetting extends Model
     public function localesAsConfig(): array
     {
         return collect($this->locales ?? [])
-            ->filter(fn($l) => !empty($l['code']) && !empty($l['label']))
-            ->mapWithKeys(fn($l) => [$l['code'] => $l['label']])
+            ->filter(fn ($l) => ! empty($l['code']) && ! empty($l['label']))
+            ->mapWithKeys(fn ($l) => [$l['code'] => $l['label']])
             ->toArray();
     }
 }

@@ -2,32 +2,35 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Panel;
-use Filament\Widgets;
-use Filament\FontProviders\LocalFontProvider;
-use Filament\PanelProvider;
+use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\Login;
 use App\Filament\Pages\SiteContentPage;
 use App\Filament\Pages\SiteOptionsPage;
-use Filament\Support\Colors\Color;
-use App\Filament\Resources\TagResource;
-use Filament\Navigation\NavigationGroup;
-use App\Filament\Resources\TroveResource;
-use Filament\Http\Middleware\Authenticate;
-use Filament\Navigation\NavigationBuilder;
-use App\Filament\Resources\TagTypeResource;
-use App\Filament\Resources\TroveTypeResource;
-use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 use App\Filament\Resources\CollectionResource;
-use Illuminate\Session\Middleware\StartSession;
-use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Session\Middleware\AuthenticateSession;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
+use App\Filament\Resources\InviteResource;
+use App\Filament\Resources\TagResource;
+use App\Filament\Resources\TagTypeResource;
+use App\Filament\Resources\TroveResource;
+use App\Filament\Resources\TroveTypeResource;
+use App\Filament\Resources\UserResource;
+use Filament\FontProviders\LocalFontProvider;
+use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Filament\Navigation\NavigationBuilder;
+use Filament\Navigation\NavigationGroup;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Filament\Support\Colors\Color;
+use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\AuthenticateSession;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
+use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -39,6 +42,8 @@ class AdminPanelProvider extends PanelProvider
             ->homeUrl('/home')
             ->path('/admin')
             ->login(Login::class)
+            ->registration(Register::class)
+            ->passwordReset()
             ->profile()
             ->colors([
                 'primary' => $this->brandColour('primary'),
@@ -89,6 +94,12 @@ class AdminPanelProvider extends PanelProvider
                                 ...SiteOptionsPage::getNavigationItems(),
                                 ...SiteContentPage::getNavigationItems(),
                             ]),
+                        NavigationGroup::make('Users')
+                            ->items([
+                                // Hidden from non-admins by UserPolicy / InvitePolicy viewAny.
+                                ...UserResource::getNavigationItems(),
+                                ...InviteResource::getNavigationItems(),
+                            ]),
                     ]);
             })
             ->plugins([
@@ -115,7 +126,7 @@ class AdminPanelProvider extends PanelProvider
     private function brandColour(string $colour): array
     {
         $css = file_get_contents(resource_path('css/app.css'));
-        preg_match('/--brand-' . preg_quote($colour, '/') . ':\s*(#[0-9a-fA-F]{3,8})/', $css, $matches);
+        preg_match('/--brand-'.preg_quote($colour, '/').':\s*(#[0-9a-fA-F]{3,8})/', $css, $matches);
 
         if (isset($matches[1])) {
             return $this->paletteAnchoredAt600($matches[1]);
