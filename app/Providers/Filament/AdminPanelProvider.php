@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Register;
+use App\Filament\Pages\Auth\SetPassword;
 use App\Filament\Pages\Login;
 use App\Filament\Pages\SiteContentPage;
 use App\Filament\Pages\SiteOptionsPage;
@@ -29,6 +30,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 
@@ -44,6 +46,9 @@ class AdminPanelProvider extends PanelProvider
             ->login(Login::class)
             ->registration(Register::class)
             ->passwordReset()
+            // Unauthenticated "set your password" page for token-invited users (see SetPasswordMail).
+            // Registered here (not ->authenticatedRoutes) so it sits in the panel's public route group.
+            ->routes(fn () => Route::get('/set-password', SetPassword::class)->name('auth.set-password'))
             ->profile()
             ->colors([
                 'primary' => $this->brandColour('primary'),

@@ -9,10 +9,12 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -55,12 +57,28 @@ class UserResource extends Resource
                                 }
                             }),
 
+                        // On create, the admin either sets a password now or emails the user a
+                        // link to set their own (see CreateUser::afterCreate + SetPasswordMail).
+                        // dehydrated(false): the choice lives in form state and is read by the page.
+                        Radio::make('password_method')
+                            ->label('Password')
+                            ->options([
+                                'email_link' => 'Email the user a link to set their own password',
+                                'manual' => 'Set a password now',
+                            ])
+                            ->default('email_link')
+                            ->required()
+                            ->live()
+                            ->dehydrated(false)
+                            ->visible(fn (string $operation): bool => $operation === 'create'),
+
                         TextInput::make('password')
                             ->password()
                             ->revealable()
-                            // Required when creating; on edit, leaving it blank keeps the
-                            // current password (dehydrated only when a value is provided).
-                            ->required(fn (string $operation): bool => $operation === 'create')
+                            // Shown on edit (blank keeps current password) and on create only when
+                            // "set a password now" is chosen; required only in that create case.
+                            ->visible(fn (string $operation, Get $get): bool => $operation === 'edit' || $get('password_method') === 'manual')
+                            ->required(fn (string $operation, Get $get): bool => $operation === 'create' && $get('password_method') === 'manual')
                             ->dehydrated(fn (?string $state): bool => filled($state))
                             ->same('passwordConfirmation')
                             ->helperText(fn (string $operation): ?string => $operation === 'edit'
@@ -72,8 +90,9 @@ class UserResource extends Resource
                             ->label('Confirm password')
                             ->password()
                             ->revealable()
+                            ->visible(fn (string $operation, Get $get): bool => $operation === 'edit' || $get('password_method') === 'manual')
                             ->dehydrated(false)
-                            ->required(fn (string $operation): bool => $operation === 'create')
+                            ->required(fn (string $operation, Get $get): bool => $operation === 'create' && $get('password_method') === 'manual')
                             ->requiredWith('password')
                             ->maxLength(255),
                     ])

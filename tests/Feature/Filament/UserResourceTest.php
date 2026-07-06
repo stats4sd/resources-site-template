@@ -15,7 +15,10 @@ it('creates a user with a role and a hashed password', function () {
             'name' => 'Created Person',
             'email' => 'created@example.com',
             'role' => UserRole::Editor->value,
+            // The form now defaults to emailing a setup link; opt into setting a password inline.
+            'password_method' => 'manual',
             'password' => 'password',
+            'passwordConfirmation' => 'password',
         ])
         ->call('create')
         ->assertHasNoFormErrors();

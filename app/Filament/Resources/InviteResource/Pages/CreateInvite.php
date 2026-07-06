@@ -12,6 +12,11 @@ class CreateInvite extends CreateRecord
 {
     protected static string $resource = InviteResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         // Stamp the inviting admin; token + expiry are set by Invite::creating().
