@@ -16,7 +16,6 @@ use App\Filament\Resources\TroveResource;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Navigation\NavigationBuilder;
 use App\Filament\Resources\TagTypeResource;
-use ChrisReedIO\Socialment\SocialmentPlugin;
 use App\Filament\Resources\TroveTypeResource;
 use LaraZeus\SpatieTranslatable\SpatieTranslatablePlugin;
 use App\Filament\Resources\CollectionResource;
@@ -93,8 +92,6 @@ class AdminPanelProvider extends PanelProvider
                     ]);
             })
             ->plugins([
-                SocialmentPlugin::make()
-                    ->registerProvider('azure', 'fab-microsoft', config('branding.org_name') . ' Staff (via Azure)'),
                 SpatieTranslatablePlugin::make()
                     ->defaultLocales(array_keys(config('branding.locales', ['en' => 'English']))),
             ])
