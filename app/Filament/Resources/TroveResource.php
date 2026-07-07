@@ -373,7 +373,7 @@ class TroveResource extends Resource
             TextColumn::make('creation_date')
                 ->date()
                 ->sortable(),
-            TextColumn::make('user.name')
+            TextColumn::make('uploader.name')
                 ->label('Uploader')
                 ->sortable(),
             TextColumn::make('download_count')

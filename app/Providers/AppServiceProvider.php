@@ -46,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
                 // known target locale. config/translation.php computes this before boot, when
                 // branding.locales is still the static default, so admin-added locales are hydrated
                 // here. Target locales exclude the source (first) locale, matching the tio package.
+                config(['translation.source_locale' => array_key_first($locales)]);
                 config(['translation.target_locales' => array_keys(array_slice($locales, 1))]);
             }
             config([
