@@ -33,6 +33,14 @@ return [
     'youtube_url'  => env('BRAND_YOUTUBE_URL', ''),
 
     /*
+     * Static fallback for the configured locales. AppServiceProvider::boot() overrides this
+     * from the database (Site Options) once migrations have run; this default keeps the public
+     * site (and translation.io locale config) working on a fresh install or if the DB is briefly
+     * unreachable.
+     */
+    'locales' => ['en' => 'English'],
+
+    /*
      * Supported Languages
      * -------------------
      * Languages are managed via the admin panel (Site Options) and stored in

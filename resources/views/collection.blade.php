@@ -89,8 +89,6 @@
 
 </div>
 
-@endsection
-
 <script>
     function scrollToSection(sectionId) {
         const target = document.getElementById(sectionId);
@@ -113,3 +111,4 @@
         }
     }
 </script>
+@endsection

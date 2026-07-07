@@ -556,9 +556,9 @@ class Trove extends Model implements HasMedia
     public function getCoverImageUrl(): string
     {
         $currentLocale = app()->getLocale();
-        $locales = ['en', 'es', 'fr'];
+        $locales = array_keys(config('branding.locales', ['en' => 'English']));
 
-        // Ordered fallback: current locale first, then English, then any remaining
+        // Ordered fallback: current locale first, then the remaining configured locales
         $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
         foreach ($orderedLocales as $locale) {

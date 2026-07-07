@@ -64,11 +64,7 @@ it('returns the default thumb when there is no cover media at all', function () 
     expect($trove->coverImageThumb)->toContain('default-cover-photo.jpg');
 });
 
-// Documented quirk (flagged for follow-up): getCoverImageUrl() hardcodes ['en','es','fr']
-// (plus the current locale) instead of using config('branding.locales'). So a cover held
-// in another configured locale that is NOT the current one is invisible to it — even
-// though the config-driven coverImage accessor finds it fine.
-it('getCoverImageUrl ignores a configured non-current locale outside its hardcoded en/es/fr list', function () {
+it('getCoverImageUrl falls back through the configured locales', function () {
     config(['app.locales' => ['en' => 'English', 'de' => 'German']]);
     config(['branding.locales' => ['en' => 'English', 'de' => 'German']]);
     app()->setLocale('en'); // current locale is en; the only cover is in de
@@ -77,8 +73,5 @@ it('getCoverImageUrl ignores a configured non-current locale outside its hardcod
     attachCover($trove, 'de');
     $trove = $trove->fresh();
 
-    // The German cover exists...
-    expect($trove->getMedia('cover_image_de'))->toHaveCount(1)
-        // ...but getCoverImageUrl only walks [current=en, en, es, fr], so it misses it.
-        ->and($trove->getCoverImageUrl())->toContain('default-cover-photo.jpg');
+    expect($trove->getCoverImageUrl())->toBe($trove->getFirstMedia('cover_image_de')->getFullUrl());
 });

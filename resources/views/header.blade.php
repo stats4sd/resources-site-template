@@ -30,7 +30,7 @@
                     </a></li>
 
                 <!-- Language Dropdown - hidden automatically when only one locale is configured -->
-                @if(count(config('branding.locales')) > 1)
+                @if(count(config('branding.locales', ['en' => 'English'])) > 1)
                 <li class="relative nav-item dropdown" x-data="{ langOpen: false }">
                     <a class="nav-link dropdown-toggle" role="button" aria-expanded="false"
                         x-on:click="langOpen = !langOpen">
@@ -38,7 +38,7 @@
                     </a>
                     <div class="language-dropdown-menu" x-show="langOpen" x-on:click.outside="langOpen = false"
                         style="display:none">
-                        @foreach(config('branding.locales') as $code => $label)
+                        @foreach(config('branding.locales', ['en' => 'English']) as $code => $label)
                             <a class="dropdown-item" href="{{ URL::current() . '?locale=' . $code }}">{{ $label }}</a>
                         @endforeach
                     </div>
@@ -55,14 +55,14 @@
             <ul class="flex flex-col space-y-2 px-6 pb-4">
                 <li><a href="/home" class="text-gray-800 hover:text-gray-600">{{ t('Library Home') }}</a></li>
                 <li><a href="/browse-all" class="text-gray-800 hover:text-gray-600">{{ t('Browse Library') }}</a></li>
-                @if(count(config('branding.locales')) > 1)
+                @if(count(config('branding.locales', ['en' => 'English'])) > 1)
                 <li class="relative nav-item pt-2 text-gray-800" x-data="{ langOpen: false }">
                     <a class="nav-link" role="button" x-on:click="langOpen = !langOpen">
                         {{ t('Change Language') }}
                     </a>
                     <ul class="language-options" x-show="langOpen" x-on:click.outside="langOpen = false"
                         style="display:none">
-                        @foreach(config('branding.locales') as $code => $label)
+                        @foreach(config('branding.locales', ['en' => 'English']) as $code => $label)
                             <li><a class="py-2" href="{{ URL::current() . '?locale=' . $code }}">{{ $label }}</a></li>
                         @endforeach
                     </ul>

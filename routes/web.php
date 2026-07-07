@@ -29,16 +29,11 @@ Route::group([
     })->name('home');
 
     Route::get('/resources/preview/{slug}', function ($slug) {
-
-        if (! auth()->check()) {
-            return;
-        }
-
         // Show the working version — the shadow draft when one exists, else the live/working row.
         $resource = Trove::withDrafts()->workingVersions()->where('slug', $slug)->firstOrFail();
 
         return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
-    });
+    })->middleware('auth');
 
     Route::get('/resources/{troveKey}', function ($troveKey) {
         $resource = Trove::findBySlugOrRedirect($troveKey);
@@ -64,7 +59,11 @@ Route::group([
     });
 
     Route::get('/download-all-zip/{slug}', function ($slug) {
-        $trove = Trove::where('slug', $slug)->firstOrFail();
+        $trove = Trove::findBySlugOrRedirect($slug);
+
+        if (! $trove) {
+            abort(404);
+        }
 
         return $trove->downloadAllFilesAsZip();
     })->name('trove.download.zip');

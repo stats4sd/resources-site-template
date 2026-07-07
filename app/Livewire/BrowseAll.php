@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection as SupportCollection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Throwable;
 
 class BrowseAll extends Component
 {
@@ -39,13 +40,13 @@ class BrowseAll extends Component
 
     public array $selectedTagsByType = [];
 
+    public bool $searchUnavailable = false;
+
     protected $listeners = ['queryUpdated' => 'updateResults'];
 
     public function mount()
     {
-        $this->locale = session('locale', app()->getLocale());
-        app()->setLocale($this->locale);
-
+        // The set.locale middleware has already resolved and set the app locale for this request.
         $this->renderedItems = collect();
 
         $this->fetchInitialData();
@@ -68,17 +69,22 @@ class BrowseAll extends Component
 
     public function search()
     {
+        $this->searchUnavailable = false;
+
         // Fetch Resources (Trove)
         $resourceQuery = Trove::query()->whereNotNull('published_at');
         $resourceHits = [];
 
         if (!empty($this->query)) {
-            $resourceHits = Trove::search($this->query, $this->getSearchWithOptions())->raw()['hits'] ?? [];
+            $resourceHits = $this->searchHits(Trove::class);
             $ids = collect($resourceHits)->pluck('id')->toArray();
 
             if ($ids) {
                 $resourceQuery->whereIn('id', $ids)
                     ->orderByRaw('FIELD(id, ' . implode(',', $ids) . ')');
+            } else {
+                // A non-empty query with no hits must return nothing, not the whole library.
+                $resourceQuery->whereRaw('1 = 0');
             }
         }
 
@@ -99,12 +105,14 @@ class BrowseAll extends Component
         $collectionHits = [];
 
         if (!empty($this->query)) {
-            $collectionHits = Collection::search($this->query, $this->getSearchWithOptions())->raw()['hits'] ?? [];
+            $collectionHits = $this->searchHits(Collection::class);
             $ids = collect($collectionHits)->pluck('id')->toArray();
 
             if ($ids) {
                 $collectionQuery->whereIn('id', $ids)
                     ->orderByRaw('FIELD(id, ' . implode(',', $ids) . ')');
+            } else {
+                $collectionQuery->whereRaw('1 = 0');
             }
         }
 
@@ -116,6 +124,25 @@ class BrowseAll extends Component
 
         // Merge with ranking preserved
         $this->mergeItems($resourceHits, $collectionHits);
+    }
+
+    /**
+     * Run the Scout query and return its raw hits. A search-engine outage sets the
+     * unavailable flag and yields no hits rather than 500-ing the whole page.
+     *
+     * @param  class-string  $model
+     * @return array<int, array<string, mixed>>
+     */
+    private function searchHits(string $model): array
+    {
+        try {
+            return $model::search($this->query, $this->getSearchWithOptions())->raw()['hits'] ?? [];
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->searchUnavailable = true;
+
+            return [];
+        }
     }
 
     public function mergeItems(array $resourceHits = [], array $collectionHits = [])
@@ -200,6 +227,8 @@ class BrowseAll extends Component
 
     public function loadPage(int $page): void
     {
+        $page = max(1, min($page, $this->pageCount));
+
         $this->currentPage = $page;
         $this->renderedItems = $this->items->skip(($page - 1) * $this->perPage)->take($this->perPage);
         $this->renderedResourcesAndCollections = $this->renderedItems->count();
