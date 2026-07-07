@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Database\Seeders\Prep\RoleSeeder;
 use Database\Seeders\Prep\SiteContentSeeder;
 use Database\Seeders\Prep\SiteSettingSeeder;
 use Database\Seeders\Prep\TagTypeSeeder;
@@ -18,6 +19,7 @@ class DatabaseSeeder extends Seeder
     {
 
         // run prep seeders from Prep folder
+        $this->call(RoleSeeder::class);
         $this->call(TagTypeSeeder::class);
         $this->call(TroveTypeSeeder::class);
         $this->call(SiteContentSeeder::class);
