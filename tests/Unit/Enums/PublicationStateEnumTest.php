@@ -14,7 +14,7 @@ it('has the expected cases and values', function () {
 it('maps each case to a label', function () {
     expect(PublicationState::Draft->getLabel())->toBe('Draft')
         ->and(PublicationState::Published->getLabel())->toBe('Published')
-        ->and(PublicationState::PendingChanges->getLabel())->toBe('Published — pending changes');
+        ->and(PublicationState::PendingChanges->getLabel())->toBe('Published - pending changes');
 });
 
 it('maps each case to a colour', function () {

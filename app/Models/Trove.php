@@ -75,16 +75,10 @@ class Trove extends Model implements HasMedia
 
         static::saving(function (Trove $trove) {
 
-            ray($trove->getDirty());
-            ray($trove);
-
             if($trove->isDirty('title')) {
 
-                ray('updating slug');
                 $trove->slug = $trove->generateSlug();
             }
-
-            ray($trove->slug);
 
 
 

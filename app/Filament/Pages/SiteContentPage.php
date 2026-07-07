@@ -124,7 +124,7 @@ class SiteContentPage extends Page implements HasForms
                         TranslatableComboField::make('footer_admin_login_label')
                             ->label('Staff login button text')
                             ->description('Appears as the button label in the site footer, linking to the admin panel.')
-                            ->icon('fluentui-document-footer-20-o')
+                            ->icon('heroicon-s-arrow-right-end-on-rectangle')
                             ->iconColor('primary')
                             ->extraAttributes(['class' => 'grey-box'])
                             ->childField(Forms\Components\TextInput::class),

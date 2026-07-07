@@ -22,14 +22,16 @@ A generalised, white-label Laravel template for building a "resources library" s
 
 ## Stack
 
-- **Laravel 11** + **PHP 8.1+**
-- **Filament 3.2** — admin panel at `/admin`
-- **Livewire 3** — reactive frontend components (browse/search, related items)
-- **Vue 3** + **Vite** + **Tailwind CSS** + **DaisyUI** — frontend assets
+- **Laravel 13** + **PHP 8.3+** (upgraded from Laravel 11 in July 2026 — see `docs/change-logs/upgrade-l13-phase3-filament-5.md`)
+- **Filament 5** — admin panel at `/admin`. Translatable admin UI uses `lara-zeus/spatie-translatable` (the abandoned first-party `filament/spatie-laravel-translatable-plugin` has no Filament 5 release). See the Filament 5 notes below for the v3→v5 API mapping that was applied.
+- **Livewire 4** — reactive frontend components (browse/search, related items)
+- **Vue 3** + **Vite** + **Tailwind CSS 4** + **DaisyUI 5** — frontend assets
 - **Meilisearch** via Laravel Scout — full-text search
 - **Spatie Media Library** — per-locale file/media management
 - **Spatie Translatable** — multilingual content (JSON columns; locales configured per-site, not hardcoded)
 - **MySQL** — primary database. Tests target SQLite `:memory:` (see the Testing section) but the app runs on MySQL, and a couple of code paths are MySQL-specific (e.g. the `whereJsonContains` on `previous_slugs`, and `EditTrove::isDuplicateDraftViolation()` keying on MySQL errno `1062`).
+- **spatie/laravel-permission** (v8) — three fixed roles (`viewer`/`editor`/`admin`); see the Authentication & roles section below.
+- **parallax/filament-comments** — admin-panel comments on records; comment creation is policy-gated (`FilamentCommentPolicy`, wired via `config/filament-comments.php` `model_policy`).
 - **Drafting is fully app-owned** — there are no `packages/` submodules and no `oddvalue/laravel-drafts` / `guava/filament-drafts` dependency (an older version of this doc described those; they are gone). Only `kainiklas/filament-scout` remains, installed as a normal Composer dependency. The shadow-draft/canonical model lives entirely in app code — see the Draft/versioning pattern below.
 
 ## Commands
@@ -45,12 +47,16 @@ php artisan migrate --seed                                   # base seed (site c
 php artisan db:seed --class="Database\Seeders\Example\ExampleDataSeeder"  # optional example troves/collections/tags
 php artisan scout:sync-index-settings                         # sync Meilisearch config after schema changes
 php artisan scout:import "App\Models\Trove"                   # reindex a model (also: App\Models\Collection)
+php artisan user:set-role user@example.com admin              # bootstrap/change a role (viewer|editor|admin); --force to demote the last admin
 
 # Tests — Pest 4 on SQLite :memory: (see docs/change-logs/test-suite-buildout.md).
-# Factories in database/factories/ are current and match the schema. Two test-harness gotchas:
+# Factories in database/factories/ are current and match the schema. Test-harness gotchas:
 #  - PublishedScope self-disables in tests because Filament registers the default panel as
 #    "current" at boot; call usePublicContext() (tests/Pest.php) to exercise public visibility.
 #  - The public layout needs config('branding.locales'); use the bootPublicSite() helper.
+#  - Auth helpers in tests/Pest.php: actingAsAdmin()/actingAsEditor()/actingAsViewer() assign the
+#    matching role (UserFactory has admin()/editor()/viewer() states); a global beforeEach resets
+#    spatie's permission cache.
 php artisan test
 php artisan test --testsuite=Unit
 php artisan test --testsuite=Feature
@@ -82,10 +88,12 @@ Everything org-specific is meant to live in `.env` + `config/branding.php`, not 
 | `Collection` | A curated group of Troves |
 | `TroveType` | Resource type classification (replaces the old org-specific `Type`) |
 | `Tag` + `TagType` | Flexible tagging taxonomy, polymorphic (`morphToMany`) onto Trove |
-| `SiteSetting` | Singleton row (`SiteSetting::instance()`) holding `show_language_filter` and the `locales` list |
+| `SiteSetting` | Singleton row (`SiteSetting::instance()`) holding `show_language_filter`, `open_registration` and the `locales` list |
 | `SiteContent` | Key/value translatable CMS strings, fetched via `SiteContent::get($key)` |
+| `Invite` | Email invite to register: unique 64-char token, 7-day expiry, `role` cast to `UserRole`, derived `status` accessor (`InviteStatus`), `refreshToken()` for resends |
+| `PasswordSetup` | Single-use set-your-password token for admin-created users (analogue of `Invite`, but the user already exists) |
 
-There is no `Organisation` or `Hub` model in this template — those were org-specific concepts removed during generalisation. `AllTrovesTable`, `Resources`/`Collections` search pages, and hub-specific browse pages that existed upstream were also removed; the single `BrowseAll` Livewire component now handles combined resource+collection search.
+There is no `Organisation` or `Hub` model in this template — those were org-specific concepts removed during generalisation. The `Resources`/`Collections` search pages and hub-specific browse pages that existed upstream were removed; the single `BrowseAll` Livewire component handles combined public resource+collection search. (`app/Livewire/AllTrovesTable.php` still exists, but as an admin-side Filament table component embedded in `ViewCollection`, not a public page.)
 
 ### Key patterns
 
@@ -103,7 +111,9 @@ The Filament seam is `app/Filament/Resources/TroveResource/Pages/EditTrove.php`:
 
 **Media**: Per-locale media collections registered dynamically from `config('app.locales')`/`config('branding.locales')` (e.g. `cover_image_en`, `content_en`). Cover images have a `cover_thumb` (450px) conversion. Both `Trove` and `Collection` implement locale-fallback accessors (`coverImage`, `coverImageThumb`) that try the current locale first, then fall back through other configured locales, then a static default asset. Storage disk is `FILESYSTEM_DISK`/`MEDIA_DISK` (S3 by default; set both to `local`/`public` for local dev without S3).
 
-**Admin panel**: Filament resources in `app/Filament/Resources/` (Trove, Collection, TroveType, Tag, TagType). Panel config/navigation/plugins (Socialment for Azure AD login, Spatie translatable plugin) live in `app/Providers/Filament/AdminPanelProvider.php`. Custom Filament pages `SiteOptionsPage` and `SiteContentPage` manage the `SiteSetting`/`SiteContent` singleton-style config from the admin UI rather than `.env`.
+**Admin panel**: Filament resources in `app/Filament/Resources/` (Trove, Collection, TroveType, Tag, TagType, plus admin-only User and Invite under a "Users" nav group). Panel config/navigation/plugins (Socialment for Azure AD login, lara-zeus `SpatieTranslatablePlugin`) live in `app/Providers/Filament/AdminPanelProvider.php`. Custom Filament pages `SiteOptionsPage` and `SiteContentPage` (both `canAccess() → isAdmin()`) manage the `SiteSetting`/`SiteContent` singleton-style config from the admin UI rather than `.env`.
+
+**Filament 5 notes** (full v3→v5 mapping in `docs/change-logs/upgrade-l13-phase3-filament-5.md`): forms/infolists are `Filament\Schemas\Schema` (`form(Schema $schema): Schema`); layout components (`Section`, `Grid`, `Tabs`, `Wizard`, …) live in `Filament\Schemas\Components\*` while input components stay in `Filament\Forms\Components\*`; all actions are unified under `Filament\Actions\*`; tables use `->recordActions()`/`->toolbarActions()`. Custom form pages render via a `content(Schema)` override, not Blade `$view`s (the old page templates were deleted). Two v5 behavioural defaults are deliberately overridden: `->visibility('public')` on every `SpatieMediaLibraryFileUpload` (v5 defaults to `private` on non-local disks → 403s), and `->deferFilters(false)` on tables that expect instant filtering. Gotcha: with the app's `TranslatableComboField` (whole locale dictionary as form state), use the lara-zeus **resource-level** `Translatable` concern (`Resources\Concerns\Translatable`) on edit pages — the page-level `EditRecord` concern overrides `handleRecordUpdate()` with `setTranslation()` per attribute and silently nests the JSON (see `docs/change-logs/fix-edittagtype-translatable-trait.md`).
 
 **Frontend browsing**: `app/Livewire/BrowseAll.php` is the main search/browse surface — it queries Meilisearch for ranked hits, applies DB-side filters (tag, language), then merges Trove + Collection results into one `items` collection sorted by ranking score, with manual pagination (`loadPage`/`perPage`, not Laravel's paginator). Other Livewire components (`CollectionTroves`, `TroveCollections`, `TroveRelatedTroves`, `SearchBar`) are smaller, single-purpose pieces embedded in `trove.blade.php`/`collection.blade.php`.
 
@@ -111,29 +121,34 @@ The Filament seam is `app/Filament/Resources/TroveResource/Pages/EditTrove.php`:
 
 ```
 app/
-  Enums/              # PublicationState, ReviewState (the two Trove lifecycle axes)
+  Enums/              # PublicationState, ReviewState (Trove lifecycle axes); UserRole, InviteStatus
   Filament/
-    Resources/       # Admin CRUD for Trove, Collection, TroveType, Tag, TagType
-    Pages/            # SiteOptionsPage, SiteContentPage, Login
+    Resources/       # Admin CRUD for Trove, Collection, TroveType, Tag, TagType, User, Invite
+    Pages/            # SiteOptionsPage, SiteContentPage, Login; Auth/ has Register + SetPassword
     Translatable/     # Custom translatable form/table components for Filament
   Livewire/           # Public-facing interactive components (BrowseAll is the main one)
+  Mail/               # UserInviteMail, SetPasswordMail (queued markdown mailables)
   Models/
     Scopes/           # PublishedScope (global scope on Trove)
+  Policies/           # Auto-discovered; content policies + admin-only User/Invite policies
   Services/           # TrovePublisher — owns every draft/publish lifecycle transition
   Traits/             # e.g. UsesCustomSearchOptions
-  Console/Commands/   # e.g. PruneSupersededMedia (sweeps orphaned superseded media)
+  Console/Commands/   # e.g. PruneSupersededMedia, SetUserRole
 resources/
   views/              # Blade templates (home, trove, collection, layouts/, components/)
   css/                # Tailwind entry point + brand CSS variables (app.css)
 routes/
   web.php             # Public routes, all under `set.locale` middleware
 database/
-  seeders/Prep/       # Base seed data (tag types, trove types, site content/settings)
+  seeders/Prep/       # Base seed data (roles, tag types, trove types, site content/settings)
   seeders/Example/    # Optional example troves/collections for local dev
 ```
 
-### Authentication
+### Authentication & roles
 
-- Standard Laravel Auth + Azure AD via `chrisreedio/socialment` (`connected_accounts` table)
-- Filament admin access is gated by `User::canAccessPanel()`, which **currently returns `true` unconditionally** — any authenticated user reaches `/admin`. (`spatie/laravel-permission` is not installed; the orphaned `database/migrations/permissions/` folder is dead code and does not run.)
+- Standard Laravel Auth + Azure AD via `chrisreedio/socialment` (`connected_accounts` table). The panel also has `->registration(Register::class)` and `->passwordReset()` enabled.
+- **Roles** (spatie/laravel-permission v8): three fixed roles — `viewer` / `editor` / `admin` — typed via `App\Enums\UserRole` (never use magic strings; `hasRole()`/`assignRole()`/selects all go through the enum). `RoleSeeder` (part of the base seed) creates them idempotently. `User` helpers: `isAdmin()`, `canEdit()` (editor or admin), `isLastAdmin()`.
+- `User::canAccessPanel()` still returns `true` for all authenticated users **by design** — viewers get a read-only panel; capability is governed by policies in `app/Policies/`. Content policies (Trove, Collection, Tag, TagType, TroveType): everyone may view, mutating abilities require `canEdit()`. `UserPolicy`/`InvitePolicy` are admin-only, and `UserPolicy::delete()` blocks self-deletion and deleting the last admin.
+- **Onboarding flows** (see `docs/change-logs/user-management-and-invites.md` and `user-set-password-on-create.md`): (1) admin sends an `Invite` → tokenised `/admin/register` link (custom `Register` page prefills + locks the email, assigns the invite's role); (2) open registration (off by default, `SiteSetting::open_registration`) grants `viewer`; (3) admin creates the user directly in `UserResource`, either typing a password or (default) emailing a single-use `PasswordSetup` link to `/admin/set-password` (registered as an unauthenticated panel route in `AdminPanelProvider`). Invite and set-password tokens are 64 chars, 7-day expiry, refreshable via the Resend actions.
+- `MAIL_*` must be configured for invites, set-password links and password resets to work.
 - `App\Providers\AppServiceProvider::boot()` calls `Model::unguard()` globally and hydrates `config('app.locales')` / `config('branding.locales')` from `SiteSetting::instance()` at boot (wrapped in try/catch for fresh installs). In tests with an empty DB at boot, those configs fall back to the static `config/app.php` default of `['en' => 'English']`.

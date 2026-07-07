@@ -27,7 +27,7 @@ it('creates an unpublished trove via the create form', function () {
         ->call('create')
         ->assertHasNoFormErrors();
 
-    $trove = Trove::withDrafts()->firstWhere('slug', 'like', 'a-new-resource-%');
+    $trove = Trove::withDrafts()->firstWhere('slug', 'a-new-resource');
     expect($trove)->not->toBeNull()
         ->and($trove->published_at)->toBeNull()
         ->and($trove->getTranslation('title', 'en'))->toBe('A New Resource')
@@ -42,7 +42,7 @@ it('publishes a trove through the publish form action', function () {
         ->callAction('publish', ['confirm_publish' => true])
         ->assertHasNoFormErrors();
 
-    $trove = Trove::withDrafts()->firstWhere('slug', 'like', 'a-new-resource-%');
+    $trove = Trove::withDrafts()->firstWhere('slug', 'a-new-resource');
     expect($trove)->not->toBeNull()
         ->and($trove->published_at)->not->toBeNull();
 });
