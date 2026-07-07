@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\SiteSetting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Telescope\TelescopeServiceProvider as PackageTelescopeServiceProvider;
 use Spatie\Translatable\Facades\Translatable;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,7 +15,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        if ($this->app->environment('local')) {
+            if (class_exists(PackageTelescopeServiceProvider::class)) {
+                $this->app->register(PackageTelescopeServiceProvider::class);
+                $this->app->register(TelescopeServiceProvider::class);
+            }
+        }
     }
 
     /**
