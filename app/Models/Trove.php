@@ -296,13 +296,6 @@ class Trove extends Model implements HasMedia
 
     }
 
-    protected function coverImage(): Attribute
-    {
-        return new Attribute(
-            get: fn () => $this->getFirstMediaUrl('cover_image_'.app()->getLocale()) ?? asset('images/default-cover-photo.jpg')
-        );
-    }
-
     protected function coverImageThumb(): Attribute
     {
         return new Attribute(
@@ -324,11 +317,6 @@ class Trove extends Model implements HasMedia
                 return asset('images/default-cover-photo.jpg');
             }
         );
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'uploader_id');
     }
 
     public function uploader(): BelongsTo
