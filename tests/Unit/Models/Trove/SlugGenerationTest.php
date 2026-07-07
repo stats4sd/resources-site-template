@@ -46,16 +46,25 @@ it('keeps a pre-set slug on a row that has a published version', function () {
     expect($trove->slug)->toBe('my-custom-slug');
 });
 
-it('appends a suffix equal to the number of rows sharing the base slug', function () {
+it('appends the first free numeric suffix when the base slug is taken', function () {
     $title = ['en' => 'Repeated Title'];
 
     $first = draftTrove(['title' => $title]);
     $second = draftTrove(['title' => $title]);
 
-    // The suffix is the count of rows matching the *base* slug; only $first holds the exact
-    // base, so $second becomes base-1. (The generator counts the base, not prior suffixes.)
     expect($first->slug)->toBe('repeated-title')
-        ->and($second->slug)->toBe('repeated-title-1');
+        ->and($second->slug)->toBe('repeated-title-2');
+});
+
+it('does not generate a slug that collides with an existing numbered slug', function () {
+    $numbered = draftTrove(['title' => ['en' => 'Foo 1']]);
+    $base = draftTrove(['title' => ['en' => 'Foo']]);
+    $another = draftTrove(['title' => ['en' => 'Foo']]);
+
+    expect($numbered->slug)->toBe('foo-1')
+        ->and($base->slug)->toBe('foo')
+        ->and($another->slug)->toBe('foo-2')
+        ->and(collect([$numbered, $base, $another])->pluck('slug')->unique())->toHaveCount(3);
 });
 
 it('does not collide with its own row when regenerating on a title change', function () {
@@ -77,7 +86,7 @@ it('counts trashed rows when checking slug uniqueness', function () {
 
     $second = draftTrove(['title' => $title]);
 
-    expect($second->slug)->toBe('trashed-collision-1');
+    expect($second->slug)->toBe('trashed-collision-2');
 });
 
 it('counts shadow-draft rows when checking slug uniqueness', function () {
@@ -91,5 +100,5 @@ it('counts shadow-draft rows when checking slug uniqueness', function () {
         ->create(['title' => $title]));
 
     expect($canonical->slug)->toBe('draft-collision')
-        ->and($draft->slug)->toBe('draft-collision-1');
+        ->and($draft->slug)->toBe('draft-collision-2');
 });
