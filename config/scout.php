@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Collection;
+use App\Models\Trove;
+
 return [
 
     /*
@@ -134,11 +137,16 @@ return [
         'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
-             \App\Models\Trove::class => [
-                 'pagination' => [
+            Trove::class => [
+                'pagination' => [
                     'maxTotalHits' => 1000,
                 ],
-             ],
+            ],
+            Collection::class => [
+                'pagination' => [
+                    'maxTotalHits' => 1000,
+                ],
+            ],
         ],
     ],
 

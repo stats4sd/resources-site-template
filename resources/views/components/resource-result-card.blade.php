@@ -33,7 +33,7 @@
         @endif
 
         <!-- Title -->
-        <p class="text-lg font-bold mx-6 mb-3 xl:min-h-8 text-black"> {!! $item['title'] !!}</p>
+        <p class="text-lg font-bold mx-6 mb-3 xl:min-h-8 text-black"> {{ $item['title'] }}</p>
 
         <!-- Description -->
         <p class="text-sm  mb-2  flex-grow mx-6 mb-4 text-gray-600">

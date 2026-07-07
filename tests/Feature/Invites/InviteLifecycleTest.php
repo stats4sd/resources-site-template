@@ -55,6 +55,16 @@ it('refreshes the token and expiry and re-sends mail on resend', function () {
     Mail::assertQueued(UserInviteMail::class);
 });
 
+it('hides the resend action for accepted invites', function () {
+    actingAsAdmin();
+    $accepted = Invite::factory()->accepted()->create();
+    $pending = Invite::factory()->create();
+
+    Livewire::test(ListInvites::class)
+        ->assertTableActionHidden('resend', $accepted)
+        ->assertTableActionVisible('resend', $pending);
+});
+
 it('rejects inviting an email that already belongs to a user', function () {
     actingAsAdmin();
     User::factory()->create(['email' => 'taken@example.com']);

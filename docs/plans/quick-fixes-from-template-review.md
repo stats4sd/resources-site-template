@@ -1,6 +1,8 @@
 # Quick Fixes from Template Review
 
-**Status**: Not Started
+**Status**: In Progress
+
+Workstream A (security & access control, items 1–6) is complete on branch `fix/security-access-control` with new tests for the bulk-delete bypass, the submit-time invite re-validation, weak passwords, private-collection visibility and the accepted-invite Resend action. Workstreams B–F are not started.
 
 Extracted from [docs/code-reviews/template-full-review.md](../code-reviews/template-full-review.md) (2026-07-07): every bug/issue fixable without significant rewrites or architecture changes. Section numbers (§) reference that review. Excluded items are listed at the end so the cut-line is explicit.
 

@@ -35,6 +35,13 @@ it('forbids deleting the last admin', function () {
         ->and($adminB->fresh()->can('delete', $adminA))->toBeFalse();
 });
 
+it('forbids bulk deletion of users even for admins', function () {
+    $admin = User::factory()->admin()->create();
+    User::factory()->admin()->create();
+
+    expect($admin->can('deleteAny', User::class))->toBeFalse();
+});
+
 it('forbids non-admins from deleting users', function () {
     $editor = User::factory()->editor()->create();
     $target = User::factory()->editor()->create();

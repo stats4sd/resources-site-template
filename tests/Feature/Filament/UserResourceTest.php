@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Filament\Resources\UserResource\Pages\CreateUser;
 use App\Filament\Resources\UserResource\Pages\EditUser;
+use App\Filament\Resources\UserResource\Pages\ListUsers;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Livewire;
@@ -51,6 +52,30 @@ it('keeps the current password when the password field is left blank on edit', f
 
     expect($user->fresh()->password)->toBe($originalHash)
         ->and($user->fresh()->name)->toBe('Renamed');
+});
+
+it('offers no bulk delete on the users table, so the last admin cannot be bulk-removed', function () {
+    User::factory()->editor()->count(2)->create();
+
+    $table = Livewire::test(ListUsers::class)->instance()->getTable();
+
+    expect($table->getBulkActions())->toBeEmpty();
+});
+
+it('rejects a weak password on the user form', function () {
+    Livewire::test(CreateUser::class)
+        ->fillForm([
+            'name' => 'Weak Password Person',
+            'email' => 'weak@example.com',
+            'role' => UserRole::Editor->value,
+            'password_method' => 'manual',
+            'password' => 'short',
+            'passwordConfirmation' => 'short',
+        ])
+        ->call('create')
+        ->assertHasFormErrors(['password']);
+
+    expect(User::where('email', 'weak@example.com')->exists())->toBeFalse();
 });
 
 it('blocks demoting the last admin from the edit form', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\InviteStatus;
 use App\Enums\UserRole;
 use App\Filament\Resources\InviteResource\Pages;
 use App\Mail\UserInviteMail;
@@ -87,6 +88,7 @@ class InviteResource extends Resource
                     ->label('Resend')
                     ->icon('heroicon-o-arrow-path')
                     ->color('gray')
+                    ->visible(fn (Invite $record): bool => $record->status !== InviteStatus::Accepted)
                     ->requiresConfirmation()
                     ->modalDescription(fn (Invite $record): string => "Issue a fresh link and email it to {$record->email}.")
                     ->action(function (Invite $record): void {
