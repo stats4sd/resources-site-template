@@ -2,12 +2,16 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\User>
+ * @extends Factory<User>
  */
 class UserFactory extends Factory
 {
@@ -38,5 +42,33 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    public function admin(): static
+    {
+        return $this->withRole(UserRole::Admin);
+    }
+
+    public function editor(): static
+    {
+        return $this->withRole(UserRole::Editor);
+    }
+
+    public function viewer(): static
+    {
+        return $this->withRole(UserRole::Viewer);
+    }
+
+    /**
+     * Assign a spatie role after creation, lazily creating the role so factory states work
+     * even when the role seeder hasn't run (the roles also exist via the data migration).
+     */
+    protected function withRole(UserRole $role): static
+    {
+        return $this->afterCreating(function ($user) use ($role): void {
+            Role::findOrCreate($role->value, 'web');
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+            $user->assignRole($role->value);
+        });
     }
 }
