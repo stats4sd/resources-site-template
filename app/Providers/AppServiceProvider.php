@@ -35,6 +35,12 @@ class AppServiceProvider extends ServiceProvider
             if (!empty($locales)) {
                 config(['branding.locales' => $locales]);
                 config(['app.locales' => $locales]);
+
+                // translation.io's SetLocaleMiddleware only honours ?locale= links whose code is a
+                // known target locale. config/translation.php computes this before boot, when
+                // branding.locales is still the static default, so admin-added locales are hydrated
+                // here. Target locales exclude the source (first) locale, matching the tio package.
+                config(['translation.target_locales' => array_keys(array_slice($locales, 1))]);
             }
             config([
                 'branding.features.show_language_filter' => $settings->show_language_filter,

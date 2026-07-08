@@ -4,14 +4,11 @@ use App\Models\Trove;
 
 beforeEach(fn () => bootPublicSite());
 
-it('returns an empty response to a guest', function () {
+it('redirects a guest to the login page', function () {
     $trove = publishedTrove();
 
-    $response = $this->get('/resources/preview/'.$trove->slug);
-
-    // The route returns nothing (null) for guests -> empty 200 body.
-    $response->assertOk();
-    expect($response->getContent())->toBe('');
+    $this->get('/resources/preview/'.$trove->slug)
+        ->assertRedirect(route('filament.admin.auth.login'));
 });
 
 it('shows the working (draft) version to an authenticated user', function () {
