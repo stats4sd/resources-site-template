@@ -12,8 +12,9 @@ use App\Support\VideoLink\VideoLinkResult;
 /**
  * troves:import — CSV bulk import (see docs/import/README.md).
  *
- * Media downloads are not exercised here (they need a reachable URL); rows in these
- * fixtures simply omit cover_image_url.
+ * Successful media downloads are not exercised here (they need a reachable URL); most
+ * fixtures simply omit cover_image_url. The failure path is exercised against a
+ * fast-refusing local address (127.0.0.1:1) instead of a real download.
  */
 
 /** Write a CSV (header + rows) to a temp file and return its path. */
@@ -353,4 +354,54 @@ it('does not resolve video urls during a dry run', function () {
 
     expect($resolver->resolvedUrls)->toBe([])
         ->and(Trove::withDrafts()->count())->toBe(0);
+});
+
+it('resolves video_url per locale', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'video_url:en', 'video_url:fr'],
+        ['A video', 'Une vidéo', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+
+    expect($resolver->resolvedUrls)->toBe([
+        'https://www.youtube.com/watch?v=q76bMs-NwRk',
+        'https://www.ecoagtube.org/content/biofertilizer-formulation-1',
+    ])
+        ->and($trove->getTranslation('video_links', 'en')[0]['url'])->toBe('https://www.youtube.com/watch?v=q76bMs-NwRk')
+        ->and($trove->getTranslation('video_links', 'fr')[0]['provider'])->toBe('ecoagtube');
+});
+
+it('dedupes rows whose video_url matches an already-imported locale-specific video', function () {
+    fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'video_url:en', 'video_url:fr'],
+        ['First', 'Premier', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/x'],
+        ['Second', 'Deuxieme', 'https://www.ecoagtube.org/content/x', 'https://www.youtube.com/watch?v=xNN7iTA57jM'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+});
+
+it('downloads cover images per locale and warns independently on failure', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'cover_image_url:en', 'cover_image_url:fr'],
+        ['A trove', 'Un trove', 'http://127.0.0.1:1/en.jpg', 'http://127.0.0.1:1/fr.jpg'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->expectsOutputToContain('cover image download failed for locale "en"')
+        ->expectsOutputToContain('cover image download failed for locale "fr"')
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
 });

@@ -42,8 +42,6 @@ class ImportTroves extends Command
     private array $fixedColumns = [
         'trove_type',
         'creation_date',
-        'video_url',
-        'cover_image_url',
         'collections',
     ];
 
@@ -51,6 +49,8 @@ class ImportTroves extends Command
     private array $localizableColumns = [
         'link_url',
         'link_title',
+        'video_url',
+        'cover_image_url',
     ];
 
     private ResolvesVideoLinks $videoLinkResolver;
@@ -145,12 +145,16 @@ class ImportTroves extends Command
         }
 
         foreach ($plan['rows'] as &$planRow) {
-            if ($planRow['video_url'] === null) {
+            if (! $planRow['video_urls']) {
                 continue;
             }
 
-            $this->line("  Resolving video {$planRow['video_url']}...");
-            $planRow['video_links'] = [$planRow['primary_locale'] => [$this->videoLinkResolver->resolve($planRow['video_url'])->toArray()]];
+            $videoLinks = [];
+            foreach ($planRow['video_urls'] as $locale => $url) {
+                $this->line("  Resolving video {$url}...");
+                $videoLinks[$locale] = [$this->videoLinkResolver->resolve($url)->toArray()];
+            }
+            $planRow['video_links'] = $videoLinks;
         }
         unset($planRow);
 
@@ -422,20 +426,28 @@ class ImportTroves extends Command
                 }
             }
 
-            $videoUrl = $fixed('video_url');
-            if ($videoUrl !== '') {
-                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $videoUrl)) {
-                    $videoUrl = "https://www.youtube.com/watch?v={$videoUrl}";
+            $videoUrls = $this->localizedColumnValues($columns['localized']['video_url'] ?? [], $row, $primaryLocale);
+            $normalizedVideoUrls = [];
+            foreach ($videoUrls as $locale => $url) {
+                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $url)) {
+                    $url = "https://www.youtube.com/watch?v={$url}";
                 }
 
-                if (! filter_var($videoUrl, FILTER_VALIDATE_URL)) {
-                    $errors[] = "invalid video_url \"{$videoUrl}\"";
+                if (! filter_var($url, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid video_url:{$locale} \"{$url}\"";
+
+                    continue;
                 }
+
+                $normalizedVideoUrls[$locale] = $url;
             }
+            $videoUrls = $normalizedVideoUrls;
 
-            $coverImageUrl = $fixed('cover_image_url') ?: null;
-            if ($coverImageUrl !== null && ! filter_var($coverImageUrl, FILTER_VALIDATE_URL)) {
-                $errors[] = "invalid cover_image_url \"{$coverImageUrl}\"";
+            $coverImageUrls = $this->localizedColumnValues($columns['localized']['cover_image_url'] ?? [], $row, $primaryLocale);
+            foreach ($coverImageUrls as $locale => $url) {
+                if (! filter_var($url, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid cover_image_url:{$locale} \"{$url}\"";
+                }
             }
 
             if ($errors) {
@@ -446,7 +458,7 @@ class ImportTroves extends Command
 
             $sourceKeys = array_values(array_merge(
                 array_values($linkUrls),
-                $videoUrl !== '' ? [$this->videoSourceKey($videoUrl)] : [],
+                array_map(fn ($url) => $this->videoSourceKey($url), array_values($videoUrls)),
             ));
             $duplicateKey = collect($sourceKeys)->first(fn ($key) => isset($this->seenSourceKeys[$key]));
             if ($duplicateKey !== null) {
@@ -492,11 +504,10 @@ class ImportTroves extends Command
                 'description' => $descriptions,
                 'trove_type_id' => $troveTypeId,
                 'creation_date' => $creationDate,
-                'primary_locale' => $primaryLocale,
                 'external_links' => $externalLinks,
-                'video_url' => $videoUrl !== '' ? $videoUrl : null,
+                'video_urls' => $videoUrls,
                 'video_links' => null,
-                'cover_image_url' => $coverImageUrl,
+                'cover_image_urls' => $coverImageUrls,
                 'tags' => $tags,
                 'collections' => array_keys($collections),
             ];
@@ -643,15 +654,12 @@ class ImportTroves extends Command
     private function downloadCoverImages(array $created): void
     {
         foreach ($created as [$trove, $row]) {
-            if (! $row['cover_image_url']) {
-                continue;
-            }
-
-            try {
-                $trove->addMediaFromUrl($row['cover_image_url'])
-                    ->toMediaCollection('cover_image_'.$row['primary_locale']);
-            } catch (Throwable $e) {
-                $this->warn("Line {$row['line']}: cover image download failed ({$e->getMessage()}); trove imported without it.");
+            foreach ($row['cover_image_urls'] as $locale => $url) {
+                try {
+                    $trove->addMediaFromUrl($url)->toMediaCollection("cover_image_{$locale}");
+                } catch (Throwable $exception) {
+                    $this->warn("Line {$row['line']}: cover image download failed for locale \"{$locale}\" ({$exception->getMessage()}); trove imported without it.");
+                }
             }
         }
     }
