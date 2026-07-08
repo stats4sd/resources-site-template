@@ -94,3 +94,12 @@ it('falls back to a plain link on http errors or connection failures', function 
 
     expect(ecoAgTubeAdapter()->resolve('https://www.ecoagtube.org/content/x')->embeddable)->toBeFalse();
 });
+
+it('extracts the og:title regardless of attribute order', function () {
+    $page = '<html><head><meta content="Reversed title" property="og:title" /></head><body><p>no embed</p></body></html>';
+    Http::fake(['https://www.ecoagtube.org/*' => Http::response($page)]);
+
+    $result = ecoAgTubeAdapter()->resolve('https://www.ecoagtube.org/content/reversed');
+
+    expect($result->title)->toBe('Reversed title');
+});

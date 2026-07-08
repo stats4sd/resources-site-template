@@ -54,7 +54,7 @@ class EcoAgTubeAdapter
             );
         }
 
-        if (preg_match('/<iframe[^>]+src="(https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[A-Za-z0-9_-]{11})/i', $html, $matches)) {
+        if (preg_match('/<iframe[^>]+src="(https:\/\/www\.youtube(?:-nocookie)?\.com\/embed\/[A-Za-z0-9_-]{11})(?=["?&\/])/i', $html, $matches)) {
             $youTubeResult = $this->youTube->resolve($matches[1]);
 
             return new VideoLinkResult(
@@ -72,12 +72,19 @@ class EcoAgTubeAdapter
 
     private function extractOgTitle(string $html): ?string
     {
-        if (! preg_match('/<meta\s+property="og:title"\s+content="([^"]*)"/i', $html, $matches)) {
-            return null;
+        $orderedPatterns = [
+            '/<meta\s+property="og:title"\s+content="([^"]*)"/i',
+            '/<meta\s+content="([^"]*)"\s+property="og:title"/i',
+        ];
+
+        foreach ($orderedPatterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $title = trim(html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5));
+
+                return $title === '' ? null : $title;
+            }
         }
 
-        $title = trim(html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5));
-
-        return $title === '' ? null : $title;
+        return null;
     }
 }
