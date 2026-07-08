@@ -43,8 +43,13 @@ trait ResolvesVideoLinkFormData
                     try {
                         $row = array_merge($row, $resolver->resolve($url)->toArray());
                     } catch (Throwable) {
-                        $row = array_merge($row, ['embeddable' => false, 'embed_url' => null, 'resolved_url' => $url]);
+                        $row = array_merge($row, ['provider' => null, 'embed_url' => null, 'embeddable' => false, 'title' => null, 'resolved_url' => null]);
                     }
+                }
+
+                if (! str_starts_with((string) ($row['embed_url'] ?? ''), 'https://')) {
+                    $row['embed_url'] = null;
+                    $row['embeddable'] = false;
                 }
 
                 $resolvedRows[] = $row;

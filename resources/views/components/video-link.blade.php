@@ -3,6 +3,9 @@
 @php
     $url = $link['url'] ?? null;
     $embedUrl = ($link['embeddable'] ?? false) ? ($link['embed_url'] ?? null) : null;
+    if ($embedUrl !== null) {
+        $embedUrl = str_starts_with($embedUrl, 'https://') ? $embedUrl : null;
+    }
     $host = $url ? preg_replace('/^www\./', '', (string) parse_url($url, PHP_URL_HOST)) : null;
     $host = $host ?: $url;
 @endphp

@@ -34,13 +34,13 @@ The `Embed\Embed` instance is bound in `AppServiceProvider::register()` so the G
 
 ## Admin form UX
 
-`app/Filament/Resources/TroveResource/Schemas/TroveFormSchema.php` gained a **Videos** repeater where editors paste any share URL. On blur the URL field fires an Alpine-driven Livewire action (`resolveVideoLink`) that calls the resolver and writes back the resolved fields (provider, embed URL, embeddable, title) into the repeater row, showing a status line: "Embeds" (green), "Link only" (amber), or "Couldn't verify" (grey). The URL itself is always preserved — the status line is informational.
+`TroveResource::form()` gained a **Videos** repeater (inside a `TranslatableComboField`) where editors paste any share URL. The URL field uses `->live(onBlur: true)` with an `afterStateUpdated` closure that calls the resolver and writes back the resolved fields (provider, embed URL, embeddable, title) into the repeater row, showing a status line via an uncoloured `Placeholder`: "Embeds on the page — {title}", "Link only — the public page will show a link card for this video.", or "Couldn't verify this URL — it will be shown as a plain link.". The URL itself is always preserved — the status line is informational.
 
 At save time, the `ResolvesVideoLinkFormData` trait (used by both `CreateTrove` and `EditTrove`) re-resolves any entry whose `resolved_url` doesn't match the current `url` (i.e. the URL was pasted but blur resolution never fired, or the URL was edited after resolution). Resolver exceptions are caught here too — stale entries fall back to a non-embeddable placeholder rather than blocking the save.
 
 ## Public rendering — `<x-video-link>`
 
-`resources/views/components/video-link.blade.php` receives a single `$link` array (one entry from `video_links`). If `embeddable` and `embed_url` are set it renders a responsive `<iframe>` with standard allow-attributes; otherwise it renders a styled link card showing the title (or truncated URL as fallback), the host domain, and a "Watch on …" button. The trove show view iterates `video_links` entries for the current locale and passes each to `<x-video-link>`.
+`resources/views/components/video-link.blade.php` receives a single `$link` array (one entry from `video_links`). If `embeddable` and `embed_url` are set (and `embed_url` begins with `https://`) it renders a responsive `<iframe>` with standard allow-attributes; otherwise it renders a styled link card showing the title if available, falling back to the host domain, and a "Watch on …" button. The trove show view iterates `video_links` entries for the current locale and passes each to `<x-video-link>`.
 
 Also fixed a leftover `$youtubeLinks` variable reference in `trove.blade.php` that caused a 500 error on any published trove page mid-branch.
 
@@ -57,7 +57,7 @@ Also fixed a leftover `$youtubeLinks` variable reference in `trove.blade.php` th
 Added 46 tests across unit and feature suites (all passing):
 
 - **Unit** — `VideoLinkResultTest` (DTO serialisation); `YouTubeAdapterTest` (ID extraction dataset, matching, oEmbed probe success/4xx/timeout, no-ID URL); `EcoAgTubeAdapterTest` (native embed, browser UA, YouTube-backed delegation, YouTube oEmbed failure, no-iframe fallback, HTTP error and connection failure); `GenericVideoAdapterTest` (oEmbed-discoverable page, no-embed fallback, non-https iframe rejection, fetch failure); `VideoLinkResolverTest` (container binding, URL safety guards, YouTube/EcoAgTube routing, adapter exception catch-all); `LegacyYoutubeLinksConverterTest` (list shape, single-assoc shape, pass-through + drop, translations dict, null/empty).
-- **Feature** — `TroveVideoRenderingTest` (iframe rendered for embeddable, link card for non-embeddable, nothing rendered for entry with no URL); `TroveFilamentVideoFormTest` (live resolution action, save-time re-resolution, error tolerance); updated `ImportTrovesCommandTest` (new `video_url` column + `youtube_url` alias, resolver called on live run, dry-run stays offline).
+- **Feature** — `TroveVideoRenderingTest` (iframe rendered for embeddable, link card for non-embeddable, nothing rendered for entry with no URL); `VideoLinksFormTest` (live resolution action, save-time re-resolution, error tolerance); updated `ImportTrovesCommandTest` (new `video_url` column + `youtube_url` alias, resolver called on live run, dry-run stays offline).
 
 ## Verification
 

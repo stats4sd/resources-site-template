@@ -140,6 +140,16 @@ class ImportTroves extends Command
             return self::SUCCESS;
         }
 
+        foreach ($plan['rows'] as &$planRow) {
+            if ($planRow['video_url'] === null) {
+                continue;
+            }
+
+            $this->line("  Resolving video {$planRow['video_url']}...");
+            $planRow['video_links'] = [$planRow['primary_locale'] => [$this->videoLinkResolver->resolve($planRow['video_url'])->toArray()]];
+        }
+        unset($planRow);
+
         $created = $this->executePlan($plan, $tagTypes, $tagTypesToCreate, $uploader, $publisher, $locales[0]);
 
         if (! $this->option('skip-media')) {
@@ -419,6 +429,7 @@ class ImportTroves extends Command
                     ? [$primaryLocale => [['link_url' => $linkUrl, 'link_title' => $fixed('link_title') ?: 'View resource']]]
                     : null,
                 'video_url' => $videoUrl !== '' ? $videoUrl : null,
+                'video_links' => null,
                 'cover_image_url' => $coverImageUrl,
                 'tags' => $tags,
                 'collections' => array_keys($collections),
@@ -518,18 +529,12 @@ class ImportTroves extends Command
                     }
 
                     foreach ($plan['rows'] as $row) {
-                        $videoLinks = null;
-                        if ($row['video_url'] !== null) {
-                            $this->line("  Resolving video {$row['video_url']}...");
-                            $videoLinks = [$row['primary_locale'] => [$this->videoLinkResolver->resolve($row['video_url'])->toArray()]];
-                        }
-
                         $trove = new Trove;
                         $trove->title = $row['title'];
                         $trove->description = $row['description'];
                         $trove->trove_type_id = $row['trove_type_id'];
                         $trove->external_links = $row['external_links'];
-                        $trove->video_links = $videoLinks;
+                        $trove->video_links = $row['video_links'] ?? null;
                         $trove->creation_date = $row['creation_date'];
                         $trove->source = false;
                         $trove->uploader_id = $uploader->id;

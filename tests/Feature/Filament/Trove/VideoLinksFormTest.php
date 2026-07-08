@@ -2,6 +2,7 @@
 
 use App\Contracts\ResolvesVideoLinks;
 use App\Filament\Resources\TroveResource\Pages\CreateTrove;
+use App\Filament\Resources\TroveResource\Pages\EditTrove;
 use App\Models\Trove;
 use App\Models\TroveType;
 use App\Support\VideoLink\VideoLinkResult;
@@ -130,4 +131,52 @@ it('saves the trove even when the resolver throws', function () {
     expect($stored)->toHaveCount(1)
         ->and($stored[0]['url'])->toBe('https://youtu.be/q76bMs-NwRk')
         ->and($stored[0]['embeddable'])->toBeFalse();
+});
+
+it('neutralises a non-https embed_url injected through a pre-resolved row', function () {
+    $type = TroveType::factory()->create();
+
+    Livewire::test(CreateTrove::class)
+        ->fillForm(videoTroveFormData($type, [[
+            'url' => 'https://youtu.be/q76bMs-NwRk',
+            'provider' => 'youtube',
+            'embed_url' => 'javascript:alert(1)',
+            'embeddable' => true,
+            'title' => 'Evil',
+            'resolved_url' => 'https://youtu.be/q76bMs-NwRk',
+        ]]))
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $stored = Trove::withDrafts()->firstWhere('slug', 'video-trove')->getTranslation('video_links', 'en');
+
+    expect($stored)->toHaveCount(1)
+        ->and($stored[0]['embeddable'])->toBeFalse()
+        ->and($stored[0]['embed_url'])->toBeNull();
+});
+
+it('editing a live trove video_links lands changes on the shadow draft not the canonical', function () {
+    $type = TroveType::factory()->create();
+    $canonical = publishedTrove([
+        'trove_type_id' => $type->id,
+        'source' => true,
+        'creation_date' => now()->subYear()->toDateString(),
+        'video_links' => ['en' => []],
+    ]);
+
+    Livewire::test(EditTrove::class, ['record' => $canonical->getKey()])
+        ->set('data.video_links', ['en' => [['url' => 'https://youtu.be/q76bMs-NwRk']]])
+        ->set('data.source', 1)
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    $canonical->refresh();
+
+    $draft = Trove::withDrafts()->where('published_id', $canonical->id)->first();
+
+    expect($canonical->getTranslation('video_links', 'en'))->toBe([])
+        ->and($draft)->not->toBeNull()
+        ->and($draft->getTranslation('video_links', 'en'))->toHaveCount(1)
+        ->and($draft->getTranslation('video_links', 'en')[0]['embed_url'])->toBe('https://www.youtube.com/embed/q76bMs-NwRk')
+        ->and($draft->getTranslation('video_links', 'en')[0]['title'])->toBe('Resolved title');
 });

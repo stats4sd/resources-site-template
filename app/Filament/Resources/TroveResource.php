@@ -217,9 +217,11 @@ class TroveResource extends Resource
                                                         $set('title', $result->title);
                                                         $set('resolved_url', $result->resolvedUrl);
                                                     } catch (Throwable) {
-                                                        $set('embeddable', false);
+                                                        $set('provider', null);
                                                         $set('embed_url', null);
-                                                        $set('resolved_url', $state);
+                                                        $set('embeddable', false);
+                                                        $set('title', null);
+                                                        $set('resolved_url', null);
                                                     }
                                                 }),
                                             Forms\Components\Hidden::make('provider'),

@@ -37,7 +37,7 @@ Column order doesn't matter. Unrecognised column names abort the import (protect
 
 ## Behaviour notes
 
-- **Idempotent re-runs**: a row whose `link_url` or YouTube ID already exists on any trove (including drafts and trashed) — or earlier in the same file — is skipped and reported. Amending the CSV and re-running only imports the new rows.
+- **Idempotent re-runs**: a row whose `link_url` or video source (YouTube video ID for YouTube URLs, or normalised video URL for all other hosts) already exists on any trove (including drafts and trashed) — or earlier in the same file — is skipped and reported. Amending the CSV and re-running only imports the new rows.
 - **Search**: index syncing is disabled during the import. If Meilisearch is active (`SCOUT_DRIVER=meilisearch`) and you published, reindex afterwards: `php artisan scout:import "App\Models\Trove"` and `php artisan scout:import "App\Models\Collection"`.
 - **Multi-value separator** is a pipe (`|`) so tag and collection names may contain commas.
 - Save the file as UTF-8; an Excel BOM is handled.
