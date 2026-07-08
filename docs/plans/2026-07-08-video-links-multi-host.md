@@ -2,7 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Not Started
+**Status:** Completed
+**Change log:** docs/change-logs/video-links-multi-host.md
 
 **Spec:** `docs/superpowers/specs/2026-07-08-video-embedding-design.md`
 
