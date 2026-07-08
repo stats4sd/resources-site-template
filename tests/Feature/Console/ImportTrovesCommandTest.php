@@ -405,3 +405,25 @@ it('downloads cover images per locale and warns independently on failure', funct
 
     expect(Trove::withDrafts()->count())->toBe(1);
 });
+
+it('imports the multilingual template CSV cleanly as a dry run', function () {
+    TroveType::create(['label' => ['en' => 'Guide', 'fr' => 'Guide']]);
+    TagType::create([
+        'slug' => 'locations',
+        'label' => ['en' => 'Locations'],
+        'description' => ['en' => ''],
+        'freetext' => false,
+    ]);
+    TagType::create([
+        'slug' => 'authors',
+        'label' => ['en' => 'Authors'],
+        'description' => ['en' => ''],
+        'freetext' => false,
+    ]);
+
+    $this->artisan('troves:import', [
+        'file' => base_path('docs/import/trove-import-template-multilingual.csv'),
+        '--uploader' => 'importer@example.com',
+        '--dry-run' => true,
+    ])->assertExitCode(0);
+});
