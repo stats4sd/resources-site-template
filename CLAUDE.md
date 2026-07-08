@@ -48,6 +48,7 @@ php artisan db:seed --class="Database\Seeders\Example\ExampleDataSeeder"  # opti
 php artisan scout:sync-index-settings                         # sync Meilisearch config after schema changes
 php artisan scout:import "App\Models\Trove"                   # reindex a model (also: App\Models\Collection)
 php artisan user:set-role user@example.com admin              # bootstrap/change a role (viewer|editor|admin); --force to demote the last admin
+php artisan troves:import list.csv --uploader=a@b.org --publish --dry-run  # bulk CSV import of troves/tags/collections (format: docs/import/README.md)
 
 # Tests — Pest 4 on SQLite :memory: (see docs/change-logs/test-suite-buildout.md).
 # Factories in database/factories/ are current and match the schema. Test-harness gotchas:
