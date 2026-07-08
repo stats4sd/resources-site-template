@@ -117,19 +117,11 @@ trait HasTroveFormActions
     }
 
     /**
-     * Shared tail of afterCreate()/afterSave(): persist per-locale file names, then publish
-     * or record the requested review as chosen by the pressed footer action.
+     * Shared tail of afterCreate()/afterSave(): publish or record the requested review
+     * as chosen by the pressed footer action.
      */
     protected function finalizeTroveSave(): void
     {
-        $formData = $this->form->getRawState();
-        foreach (array_keys(config('branding.locales', ['en' => 'English'])) as $locale) {
-            $name = $formData["file_name_{$locale}"] ?? null;
-            if ($name) {
-                $this->record->getMedia("content_{$locale}")->each(fn ($m) => $m->update(['name' => $name]));
-            }
-        }
-
         $this->justPublished = $this->shouldPublish;
         if ($this->shouldPublish) {
             app(TrovePublisher::class)->publish($this->record);

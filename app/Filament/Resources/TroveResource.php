@@ -56,13 +56,6 @@ class TroveResource extends Resource
         return parent::getEloquentQuery()->workingVersions();
     }
 
-    public static function getRecordTitleAttribute(): ?string
-    {
-        $locale = app()->getLocale();
-
-        return "title";
-    }
-
     public static function form(Schema $schema): Schema
     {
 
@@ -382,7 +375,7 @@ class TroveResource extends Resource
             TextColumn::make('creation_date')
                 ->date()
                 ->sortable(),
-            TextColumn::make('user.name')
+            TextColumn::make('uploader.name')
                 ->label('Uploader')
                 ->sortable(),
             TextColumn::make('download_count')
@@ -413,7 +406,7 @@ class TroveResource extends Resource
                 ->relationship('troveType', 'label')
                 ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
             SelectFilter::make('uploader')
-                ->relationship('user', 'name'),
+                ->relationship('uploader', 'name'),
             ...$tagFilters,
         ];
     }

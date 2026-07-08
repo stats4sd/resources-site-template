@@ -1,10 +1,12 @@
 {
-    "name": "laravel/laravel",
+    "name": "stats4sd/resources-site-template",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "A white-label Laravel template for building a browsable, searchable resources library site.",
     "keywords": [
         "laravel",
-        "framework"
+        "filament",
+        "resources-library",
+        "template"
     ],
     "license": "MIT",
     "require": {
@@ -30,7 +32,6 @@
         "spatie/laravel-google-cloud-storage": "^2.4",
         "spatie/laravel-ignition": "^2.0",
         "spatie/laravel-permission": "^8.3",
-        "spatie/laravel-ray": "^1.37",
         "symfony/http-client": "^8.0",
         "symfony/mailgun-mailer": "^8.0",
         "tio/laravel": "^1.23"
@@ -38,7 +39,6 @@
     "require-dev": {
         "barryvdh/laravel-debugbar": "^3.17|^4.0",
         "fakerphp/faker": "^1.9.1",
-        "laravel-shift/blueprint": "^2.7",
         "laravel/pint": "^1.0",
         "laravel/sail": "^1.18",
         "laravel/telescope": "^5.20",
@@ -48,7 +48,8 @@
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
         "phpunit/phpunit": "^12.0",
-        "rector/rector": "^2.5"
+        "rector/rector": "^2.5",
+        "spatie/laravel-ray": "^1.37"
     },
     "autoload": {
         "psr-4": {
