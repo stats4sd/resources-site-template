@@ -88,3 +88,55 @@ it('rejects an invite whose email was registered after the invite was sent', fun
     Livewire::test(Register::class, ['token' => $invite->token])
         ->assertRedirect(Filament::getLoginUrl());
 });
+
+it('rejects an invite that expires between page load and submit', function () {
+    $invite = Invite::factory()->create(['email' => 'slow@example.com']);
+
+    $component = Livewire::test(Register::class, ['token' => $invite->token]);
+    fillRegistration($component, 'slow@example.com');
+
+    $invite->forceFill(['expires_at' => now()->subMinute()])->save();
+
+    $component->call('register')->assertRedirect(Filament::getLoginUrl());
+
+    expect(User::where('email', 'slow@example.com')->exists())->toBeFalse();
+});
+
+it('rejects an invite that is accepted elsewhere between page load and submit', function () {
+    $invite = Invite::factory()->create(['email' => 'racer@example.com']);
+
+    $component = Livewire::test(Register::class, ['token' => $invite->token]);
+    fillRegistration($component, 'racer@example.com');
+
+    $invite->markAccepted();
+
+    $component->call('register')->assertRedirect(Filament::getLoginUrl());
+
+    expect(User::where('email', 'racer@example.com')->exists())->toBeFalse();
+});
+
+it('rejects a submit when the invite email was claimed after page load', function () {
+    $invite = Invite::factory()->create(['email' => 'claimed@example.com']);
+
+    $component = Livewire::test(Register::class, ['token' => $invite->token]);
+    fillRegistration($component, 'claimed@example.com');
+
+    User::factory()->create(['email' => 'claimed@example.com']);
+
+    $component->call('register')->assertRedirect(Filament::getLoginUrl());
+
+    expect(User::where('email', 'claimed@example.com')->count())->toBe(1);
+});
+
+it('rejects an open registration submitted after open registration is switched off', function () {
+    SiteSetting::instance()->update(['open_registration' => true]);
+
+    $component = Livewire::test(Register::class);
+    fillRegistration($component, 'toolate@example.com');
+
+    SiteSetting::instance()->update(['open_registration' => false]);
+
+    $component->call('register')->assertRedirect(Filament::getLoginUrl());
+
+    expect(User::where('email', 'toolate@example.com')->exists())->toBeFalse();
+});

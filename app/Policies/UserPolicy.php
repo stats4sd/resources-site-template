@@ -41,4 +41,13 @@ class UserPolicy
 
         return ! $model->isLastAdmin();
     }
+
+    /**
+     * Bulk deletion is disabled outright: bulk actions skip the per-record delete()
+     * guards (self-deletion, last admin), so there is no safe way to allow it.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return false;
+    }
 }

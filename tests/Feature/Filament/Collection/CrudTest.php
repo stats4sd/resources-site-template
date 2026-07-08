@@ -23,6 +23,23 @@ it('creates a collection via the create form', function () {
         ->and($collection->public)->toBeTrue();
 });
 
+it('sanitises the description HTML on save, stripping scripts and event handlers', function () {
+    Livewire::test(CreateCollection::class)
+        ->fillForm([
+            'title' => ['en' => 'Dangerous Collection'],
+            'description' => ['en' => '<p>Safe <em>note</em></p><script>alert(1)</script><a href="javascript:evil()">x</a>'],
+            'public' => true,
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $stored = Collection::query()->latest('id')->first()->getTranslation('description', 'en');
+
+    expect($stored)->toContain('<em>note</em>')
+        ->and($stored)->not->toContain('<script>')
+        ->and($stored)->not->toContain('javascript:');
+});
+
 it('edits a collection via the edit form', function () {
     $collection = Collection::factory()->create(['title' => ['en' => 'Before']]);
 

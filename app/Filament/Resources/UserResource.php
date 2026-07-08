@@ -5,9 +5,7 @@ namespace App\Filament\Resources;
 use App\Enums\UserRole;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
@@ -18,6 +16,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Password;
 
 class UserResource extends Resource
 {
@@ -75,6 +74,7 @@ class UserResource extends Resource
                         TextInput::make('password')
                             ->password()
                             ->revealable()
+                            ->rule(Password::default())
                             // Shown on edit (blank keeps current password) and on create only when
                             // "set a password now" is chosen; required only in that create case.
                             ->visible(fn (string $operation, Get $get): bool => $operation === 'edit' || $get('password_method') === 'manual')
@@ -125,11 +125,6 @@ class UserResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 DeleteAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
             ]);
     }
 

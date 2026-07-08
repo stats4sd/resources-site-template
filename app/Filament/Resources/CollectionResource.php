@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
+use App\Support\HtmlSanitizer;
 use Filament\Schemas\Schema;
 use App\Models\Collection;
 use Filament\Tables\Table;
@@ -49,7 +50,13 @@ class CollectionResource extends Resource
                     ->extraAttributes(['class' => 'grey-box'])
                     ->label('Describe the Collection')
                     ->description('For example: What is this collection? Who is it for? Why was it curated?')
-                    ->childField(Forms\Components\MarkdownEditor::class)
+                    ->childField(
+                        Forms\Components\RichEditor::make('description')
+                        ->disableToolbarButtons([
+                            'attachFiles'
+                        ])
+                        ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
+                    )
                     ->required(),
 
                 Section::make('cover_image')

@@ -12,12 +12,12 @@
         <div class="max-w-3xl w-full mx-auto text-center">
             <!-- Heading -->
             <div class="font-bold text-left md:text-center text-4xl sm:text-5xl md:text-5xl">
-                {!! \App\Models\SiteContent::get('library_heading_line1') !!} {!! \App\Models\SiteContent::get('library_heading_line2') !!}
+                {{ \App\Models\SiteContent::get('library_heading_line1') }} {{ \App\Models\SiteContent::get('library_heading_line2') }}
             </div>
 
             <!-- Description -->
             <div class="mt-6 text-left md:text-center pr-2 mx-auto">
-                <p class="mb-4 text-xl">{!! \App\Models\SiteContent::get('library_hero_description') !!}
+                <p class="mb-4 text-xl">{{ \App\Models\SiteContent::get('library_hero_description') }}
                 </p>
             </div>
         </div>

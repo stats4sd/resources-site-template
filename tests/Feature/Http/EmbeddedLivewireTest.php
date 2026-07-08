@@ -28,6 +28,17 @@ it('mounts TroveCollections', function () {
         ->assertOk();
 });
 
+it('excludes private collections from TroveCollections', function () {
+    $trove = publishedTrove();
+    $public = Collection::factory()->create(['title' => ['en' => 'Public Set']]);
+    $private = Collection::factory()->private()->create(['title' => ['en' => 'Secret Set']]);
+    $trove->collections()->attach([$public->id, $private->id]);
+
+    Livewire::test(TroveCollections::class, ['resource' => $trove])
+        ->assertSee('Public Set')
+        ->assertDontSee('Secret Set');
+});
+
 it('mounts TroveRelatedTroves', function () {
     $collection = Collection::factory()->create();
     $trove = publishedTrove();
