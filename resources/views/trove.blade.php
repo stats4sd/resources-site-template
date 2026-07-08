@@ -142,12 +142,7 @@
             @if($videoLinks->isNotEmpty())
                 <div class="mb-8 space-y-4">
                     @foreach($videoLinks as $link)
-                        @if(($link['embeddable'] ?? false) && ! empty($link['embed_url']))
-                            <div class="rounded-2xl overflow-hidden shadow-sm max-w-2xl mx-auto">
-                                <iframe class="w-full aspect-video" src="{{ $link['embed_url'] }}"
-                                    frameborder="0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                            </div>
-                        @endif
+                        <x-video-link :link="$link" />
                     @endforeach
                 </div>
             @endif
@@ -208,7 +203,7 @@
                 @endforeach
             </div>
 
-            @if($downloadItems->isNotEmpty() || $youtubeLinks)
+            @if($downloadItems->isNotEmpty() || $videoLinks->isNotEmpty())
                 <div class="flex justify-end mt-6">
                     <a href="{{ route('trove.download.zip', ['slug' => $resource->slug]) }}"
                         class="flex items-center gap-2 bg-brand-primary text-white font-semibold uppercase tracking-wide text-sm px-6 py-3 rounded-full hover:opacity-90 transition">
