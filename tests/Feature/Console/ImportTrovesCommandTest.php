@@ -84,7 +84,14 @@ it('publishes imported troves with --publish', function () {
 
     $trove = Trove::withDrafts()->firstOrFail();
     expect($trove->published_at)->not->toBeNull()
-        ->and($trove->getTranslation('youtube_links', 'en'))->toBe([['youtube_id' => 'q76bMs-NwRk']]);
+        ->and($trove->getTranslation('video_links', 'en'))->toBe([[
+            'url' => 'https://www.youtube.com/watch?v=q76bMs-NwRk',
+            'provider' => 'youtube',
+            'embed_url' => 'https://www.youtube.com/embed/q76bMs-NwRk',
+            'embeddable' => true,
+            'title' => null,
+            'resolved_url' => 'https://www.youtube.com/watch?v=q76bMs-NwRk',
+        ]]);
 });
 
 it('writes nothing on --dry-run', function () {

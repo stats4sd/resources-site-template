@@ -8,6 +8,8 @@ use App\Models\Trove;
 use App\Models\TroveType;
 use App\Models\User;
 use App\Services\TrovePublisher;
+use App\Services\VideoLink\YouTubeAdapter;
+use App\Support\VideoLink\LegacyYoutubeLinksConverter;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -250,7 +252,7 @@ class ImportTroves extends Command
             }
         }
 
-        $existing = Trove::withDrafts()->withTrashed()->get(['id', 'external_links', 'youtube_links']);
+        $existing = Trove::withDrafts()->withTrashed()->get(['id', 'external_links', 'video_links']);
         foreach ($existing as $trove) {
             foreach ($trove->getTranslations('external_links') as $links) {
                 foreach ($this->normaliseLinkList($links) as $link) {
@@ -259,10 +261,11 @@ class ImportTroves extends Command
                     }
                 }
             }
-            foreach ($trove->getTranslations('youtube_links') as $links) {
+            foreach ($trove->getTranslations('video_links') as $links) {
                 foreach ($this->normaliseLinkList($links) as $link) {
-                    if (! empty($link['youtube_id'])) {
-                        $this->seenSourceKeys['yt:'.$link['youtube_id']] = $trove->id;
+                    $videoId = YouTubeAdapter::extractId((string) ($link['url'] ?? ''));
+                    if ($videoId !== null) {
+                        $this->seenSourceKeys["yt:{$videoId}"] = $trove->id;
                     }
                 }
             }
@@ -279,7 +282,7 @@ class ImportTroves extends Command
             return [];
         }
 
-        return (isset($links['link_url']) || isset($links['youtube_id'])) ? [$links] : $links;
+        return (isset($links['link_url']) || isset($links['youtube_id']) || isset($links['url'])) ? [$links] : $links;
     }
 
     /**
@@ -405,8 +408,8 @@ class ImportTroves extends Command
                 'external_links' => $linkUrl !== ''
                     ? [$primaryLocale => [['link_url' => $linkUrl, 'link_title' => $fixed('link_title') ?: 'View resource']]]
                     : null,
-                'youtube_links' => $youtubeId !== null
-                    ? [$primaryLocale => [['youtube_id' => $youtubeId]]]
+                'video_links' => $youtubeId !== null
+                    ? [$primaryLocale => LegacyYoutubeLinksConverter::convertLocaleEntries([['youtube_id' => $youtubeId]])]
                     : null,
                 'cover_image_url' => $coverImageUrl,
                 'tags' => $tags,
@@ -521,7 +524,7 @@ class ImportTroves extends Command
                         $trove->description = $row['description'];
                         $trove->trove_type_id = $row['trove_type_id'];
                         $trove->external_links = $row['external_links'];
-                        $trove->youtube_links = $row['youtube_links'];
+                        $trove->video_links = $row['video_links'];
                         $trove->creation_date = $row['creation_date'];
                         $trove->source = false;
                         $trove->uploader_id = $uploader->id;

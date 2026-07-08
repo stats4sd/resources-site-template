@@ -8,6 +8,7 @@ use App\Models\TagType;
 use App\Models\Trove;
 use App\Models\TroveType;
 use App\Models\User;
+use App\Support\VideoLink\LegacyYoutubeLinksConverter;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 
@@ -75,14 +76,14 @@ class ExampleDataSeeder extends Seeder
                 'title' => ['en' => 'Introduction to Data Analysis', 'es' => 'Introducción al análisis de datos'],
                 'description' => ['en' => 'A beginner-friendly guide to data analysis techniques used in agricultural research contexts.'],
                 'external_links' => ['en' => [['link_url' => 'https://www.stats4sd.org', 'link_title' => 'Stats4SD Website']]],
-                'youtube_links' => ['en' => [['youtube_id' => 'q76bMs-NwRk']]],
+                'video_links' => ['en' => LegacyYoutubeLinksConverter::convertLocaleEntries([['youtube_id' => 'q76bMs-NwRk']])],
                 'authors' => array_filter([$john, $maria]),
             ],
             [
                 'title' => ['en' => 'Field Research Methods', 'es' => 'Métodos de investigación de campo'],
                 'description' => ['en' => 'Practical approaches to conducting field research, including data collection and quality assurance.'],
                 'external_links' => ['en' => [['link_url' => 'https://www.stats4sd.org', 'link_title' => 'Stats4SD Website']]],
-                'youtube_links' => ['en' => [['youtube_id' => 'xNN7iTA57jM']]],
+                'video_links' => ['en' => LegacyYoutubeLinksConverter::convertLocaleEntries([['youtube_id' => 'xNN7iTA57jM']])],
                 'authors' => array_filter([$john]),
             ],
             [
@@ -94,17 +95,17 @@ class ExampleDataSeeder extends Seeder
             [
                 'title' => ['en' => 'Data Visualisation Guide'],
                 'description' => ['en' => 'Best practices for visualising research data clearly and accessibly for different audiences.'],
-                'youtube_links' => ['en' => [
+                'video_links' => ['en' => LegacyYoutubeLinksConverter::convertLocaleEntries([
                     ['youtube_id' => 'q76bMs-NwRk'],
                     ['youtube_id' => 'xNN7iTA57jM'],
-                ]],
+                ])],
                 'authors' => array_filter([$maria, $sophie]),
             ],
             [
                 'title' => ['en' => 'Agroecology Training Materials', 'fr' => 'Matériel de formation en agroécologie'],
                 'description' => ['en' => 'Training resources for agroecology practitioners working in smallholder farming contexts.', 'fr' => 'Ressources de formation pour les praticiens de l\'agroécologie.'],
                 'external_links' => ['en' => [['link_url' => 'https://www.stats4sd.org', 'link_title' => 'Stats4SD Website']]],
-                'youtube_links' => ['en' => [['youtube_id' => 'xNN7iTA57jM']]],
+                'video_links' => ['en' => LegacyYoutubeLinksConverter::convertLocaleEntries([['youtube_id' => 'xNN7iTA57jM']])],
                 'authors' => array_filter([$sophie]),
             ],
         ];
@@ -117,7 +118,7 @@ class ExampleDataSeeder extends Seeder
                 $trove->description = $data['description'];
                 $trove->trove_type_id = $troveType?->id;
                 $trove->external_links = $data['external_links'] ?? null;
-                $trove->youtube_links = $data['youtube_links'] ?? null;
+                $trove->video_links = $data['video_links'] ?? null;
                 $trove->source = false;
                 $trove->creation_date = '2024-01-01';
                 $trove->uploader_id = $user->id;

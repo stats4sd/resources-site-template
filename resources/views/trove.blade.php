@@ -121,13 +121,9 @@
         }
         $mediaFiles = $resource->getContentMedia();
 
-        $youtubeLinks = $resource->getTranslation('youtube_links', app()->getLocale());
-        if (isset($youtubeLinks['youtube_id'])) {
-            $youtubeLinks = [$youtubeLinks];
-        }
-        if (! ($youtubeLinks[0]['youtube_id'] ?? null)) {
-            $youtubeLinks = null;
-        }
+        $videoLinks = collect($resource->getTranslation('video_links', app()->getLocale()) ?? [])
+            ->filter(fn ($link) => is_array($link) && ! empty($link['url']))
+            ->values();
     @endphp
 
 
@@ -137,19 +133,18 @@
     <div class="text-gray-700 leading-relaxed">{!! t($resource->description) !!}</div>
 
     <!-- View / Download -->
-    @if($youtubeLinks || ($externalLinks && is_array($externalLinks)) || $mediaFiles->isNotEmpty())
+    @if($videoLinks->isNotEmpty() || ($externalLinks && is_array($externalLinks)) || $mediaFiles->isNotEmpty())
         <div class="mt-16">
             <div class="divider"></div>
             <h2 class="text-2xl font-bold mb-4">{{ t('View / Download') }}</h2>
 
-            <!-- Embedded YouTube Videos -->
-            @if($youtubeLinks)
+            <!-- Embedded Videos -->
+            @if($videoLinks->isNotEmpty())
                 <div class="mb-8 space-y-4">
-                    @foreach($youtubeLinks as $link)
-                        @php $youtubeId = $link['youtube_id'] ?? null; @endphp
-                        @if($youtubeId)
+                    @foreach($videoLinks as $link)
+                        @if(($link['embeddable'] ?? false) && ! empty($link['embed_url']))
                             <div class="rounded-2xl overflow-hidden shadow-sm max-w-2xl mx-auto">
-                                <iframe class="w-full aspect-video" src="https://www.youtube.com/embed/{{ $youtubeId }}"
+                                <iframe class="w-full aspect-video" src="{{ $link['embed_url'] }}"
                                     frameborder="0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                             </div>
                         @endif

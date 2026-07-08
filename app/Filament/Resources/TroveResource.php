@@ -2,44 +2,43 @@
 
 namespace App\Filament\Resources;
 
-use App\Models\Tag;
 use App\Enums\ReviewState;
-use App\Support\HtmlSanitizer;
-use Filament\Forms;
-use Filament\Tables;
-use App\Models\Trove;
+use App\Filament\Resources\TroveResource\Pages;
+use App\Filament\Translatable\Form\TranslatableComboField;
+use App\Models\Scopes\PublishedScope;
+use App\Models\Tag;
 use App\Models\TagType;
-use Livewire\Component;
-use Filament\Schemas\Schema;
-use Filament\Tables\Table;
-use Filament\Actions\Action;
-use Filament\Actions\EditAction;
-use Filament\Resources\Resource;
-use Filament\Actions\BulkActionGroup;
-use Illuminate\Support\HtmlString;
+use App\Models\Trove;
+use App\Support\HtmlSanitizer;
 use Awcodes\Shout\Components\Shout;
-use Illuminate\Support\Facades\Auth;
-use Filament\Schemas\Components\Wizard;
-use Filament\Schemas\Components\Section;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\EditAction;
+use Filament\Forms;
 use Filament\Forms\Components\Repeater;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
-use App\Filament\Resources\TroveResource\Pages;
-use App\Models\Scopes\PublishedScope;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\HtmlString;
 use Kainiklas\FilamentScout\Traits\InteractsWithScout;
-use App\Filament\Translatable\Form\TranslatableComboField;
-use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
+use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
+use Livewire\Component;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
 
 class TroveResource extends Resource
 {
-    use Translatable;
     use InteractsWithScout;
+    use Translatable;
 
     protected static ?string $model = Trove::class;
 
@@ -89,10 +88,10 @@ class TroveResource extends Resource
                                 ->hint(__('For example: What is this trove? Who is it for? Why was it made or uploaded?'))
                                 ->childField(
                                     Forms\Components\RichEditor::make('description')
-                                    ->disableToolbarButtons([
-                                        'attachFiles'
-                                    ])
-                                    ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
+                                        ->disableToolbarButtons([
+                                            'attachFiles',
+                                        ])
+                                        ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
                                 )
                                 ->required(),
 
@@ -109,7 +108,7 @@ class TroveResource extends Resource
                                         ->preload()
                                         ->placeholder('Select the resource type')
                                         ->required()
-                                        ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
+                                        ->getOptionLabelFromRecordUsing(fn ($record, $livewire) => $record->getTranslation('label', 'en')),
 
                                     Forms\Components\Select::make('source')
                                         ->placeholder('Select the origin of the resource')
@@ -152,16 +151,15 @@ class TroveResource extends Resource
                                 ->description(__('A trove will often contain multiple files. These are files that are part of the same set, like a powerpoint presentation and the presenter\'s own notes, or question and answer sheets of a quiz'))
                                 ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
                                 ->schema(
-                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
-                                        Forms\Components\SpatieMediaLibraryFileUpload::make("files_{$locale}")
-                                            ->label($label)
-                                            ->multiple()
-                                            ->reorderable()
-                                            ->downloadable()
-                                            ->preserveFilenames()
-                                            ->collection("content_{$locale}")
-                                            ->visibility('public')
-                                            ->disk(config('media-library.disk_name'))
+                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) => Forms\Components\SpatieMediaLibraryFileUpload::make("files_{$locale}")
+                                        ->label($label)
+                                        ->multiple()
+                                        ->reorderable()
+                                        ->downloadable()
+                                        ->preserveFilenames()
+                                        ->collection("content_{$locale}")
+                                        ->visibility('public')
+                                        ->disk(config('media-library.disk_name'))
                                     )->values()->all()
                                 ),
 
@@ -183,7 +181,7 @@ class TroveResource extends Resource
                                         ->addActionLabel('Add a link')
                                 ),
 
-                            TranslatableComboField::make('youtube_links')
+                            TranslatableComboField::make('video_links')
                                 ->icon('heroicon-o-video-camera')
                                 ->iconColor('primary')
                                 ->extraAttributes(['class' => 'grey-box'])
@@ -191,9 +189,9 @@ class TroveResource extends Resource
                                 ->hint('Add the youtube id if you have added a video file that already exists on YouTube. On YouTube, when you hit "share", the id is the random-like string after https://youtu.be/')
                                 ->columns(3)
                                 ->childField(
-                                    Forms\Components\Repeater::make('youtube_links')
+                                    Repeater::make('video_links')
                                         ->schema([
-                                            Forms\Components\TextInput::make('youtube_id')
+                                            TextInput::make('youtube_id')
                                                 ->label('YouTube ID'),
                                         ])
                                         ->addActionLabel('Add a YouTube video'),
@@ -211,11 +209,10 @@ class TroveResource extends Resource
                                 ->description(__('Add a cover image for the resource. This will be displayed on the front-end.'))
                                 ->columns(min(3, count(config('branding.locales', ['en' => 'English']))))
                                 ->schema(
-                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) =>
-                                        Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
-                                            ->label($label)
-                                            ->collection("cover_image_{$locale}")
-                                            ->visibility('public')
+                                    collect(config('branding.locales', ['en' => 'English']))->map(fn ($label, $locale) => Forms\Components\SpatieMediaLibraryFileUpload::make("cover_image_{$locale}")
+                                        ->label($label)
+                                        ->collection("cover_image_{$locale}")
+                                        ->visibility('public')
                                     )->values()->all()
                                 ),
                         ]),
@@ -232,7 +229,7 @@ class TroveResource extends Resource
                                 ->type('info'),
                         ]),
                 ])
-                ->skippable(fn(Component $livewire) => $livewire instanceof EditRecord),
+                    ->skippable(fn (Component $livewire) => $livewire instanceof EditRecord),
             ])
             ->columns(1);
     }
@@ -248,8 +245,8 @@ class TroveResource extends Resource
             ->deferFilters(false)
             ->columns(static::getTableColumns())
             ->filters(static::getTableFilters())
-            ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
-            ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
+            ->filtersTriggerAction(fn ($action) => $action->button()->label('Filters'))
+            ->filtersLayout(fn () => FiltersLayout::AboveContentCollapsible)
             ->recordActions([
                 CommentsAction::make(),
                 Action::make('preview_trove')
@@ -257,8 +254,8 @@ class TroveResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->url(function (Trove $record) {
                         return $record->is_published
-                            ? url('/resources/' . $record->slug)
-                            : url('/resources/preview/' . $record->slug);
+                            ? url('/resources/'.$record->slug)
+                            : url('/resources/preview/'.$record->slug);
                     })
                     ->openUrlInNewTab()
                     ->action(null)
@@ -296,17 +293,17 @@ class TroveResource extends Resource
                 ->relationship(
                     name: 'tags',
                     titleAttribute: 'name',
-                    modifyQueryUsing: fn(Builder $query) => $query->where('type_id', $tagType->id))
+                    modifyQueryUsing: fn (Builder $query) => $query->where('type_id', $tagType->id))
                 ->label($tagType->label)
                 ->placeholder('Select tags')
                 ->multiple()
                 ->preload()
                 ->loadingMessage('Loading tags...')
                 ->noSearchResultsMessage('No tags match your search')
-                ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('name', 'en'))
+                ->getOptionLabelFromRecordUsing(fn ($record, $livewire) => $record->getTranslation('name', 'en'))
                 ->hintIcon(
                     icon: 'heroicon-m-question-mark-circle',
-                    tooltip: fn() => $tagType->description
+                    tooltip: fn () => $tagType->description
                 );
 
             if ($tagType->freetext) {
@@ -321,7 +318,7 @@ class TroveResource extends Resource
                             ->label('Name')
                             ->description('Enter the name of the tag')
                             ->columns(3)
-                            ->childField(Forms\Components\TextInput::class),
+                            ->childField(TextInput::class),
                     ])
                     ->createOptionUsing(function (array $data) use ($tagType) {
 
@@ -345,25 +342,24 @@ class TroveResource extends Resource
         return [
             TextColumn::make('title')
                 ->wrap()
-                ->sortable(query: fn(Builder $query, $direction) => $query->orderBy('title->' . app()->currentLocale(), $direction)),
+                ->sortable(query: fn (Builder $query, $direction) => $query->orderBy('title->'.app()->currentLocale(), $direction)),
             // The two orthogonal lifecycle facets, shown side by side (never flattened):
             // the publication state is the primary badge, carrying the "✓ reviewed by X"
             // stamp beneath it when a review has been completed (Trove::publicationState()).
             TextColumn::make('publication_state')
                 ->label('Status')
-                ->badge()
-                ,
+                ->badge(),
             // The review facet: an "In review" chip while a review is outstanding. The
             // completed-review fact is surfaced by the description line above, so this
             // cell is intentionally empty for None / Reviewed.
             TextColumn::make('review_state')
                 ->label('Review')
                 ->badge()
-                ->description(fn(Trove $record): string => $record->review_state === ReviewState::Reviewed
-                    ? 'by ' . ($record->reviewer?->name ?? 'unknown')
+                ->description(fn (Trove $record): string => $record->review_state === ReviewState::Reviewed
+                    ? 'by '.($record->reviewer?->name ?? 'unknown')
                     : ''),
             SpatieMediaLibraryImageColumn::make('cover_image')
-                ->collection(fn(Component $livewire) => 'cover_image_' . $livewire->activeLocale),
+                ->collection(fn (Component $livewire) => 'cover_image_'.$livewire->activeLocale),
             TextColumn::make('created_at')
                 ->label('Upload date')
                 ->date()
@@ -404,7 +400,7 @@ class TroveResource extends Resource
                 ->options([0 => 'Internal', 1 => 'External']),
             SelectFilter::make('resourceType')
                 ->relationship('troveType', 'label')
-                ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
+                ->getOptionLabelFromRecordUsing(fn ($record, $livewire) => $record->getTranslation('label', 'en')),
             SelectFilter::make('uploader')
                 ->relationship('uploader', 'name'),
             ...$tagFilters,

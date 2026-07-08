@@ -5,7 +5,6 @@ namespace Database\Factories;
 use App\Models\Trove;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 /**
  * @extends Factory<Trove>
@@ -27,7 +26,7 @@ class TroveFactory extends Factory
             'creation_date' => $this->faker->date(),
             'uploader_id' => User::factory(),
             'external_links' => null,
-            'youtube_links' => null,
+            'video_links' => null,
             'published_at' => null,
         ];
     }
