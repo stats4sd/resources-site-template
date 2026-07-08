@@ -29,7 +29,7 @@ If you don't have S3 set up, you can use the local public disk for development b
 
 ### Meilisearch
 
-Search is powered by Meilisearch. If you don't need search locally, you can disable it by setting `SCOUT_DRIVER=null` in your `.env`.
+Search is powered by Meilisearch. The `SCOUT_DRIVER` config defaults to `null` (search disabled, no external service required), so search only works once you explicitly set `SCOUT_DRIVER=meilisearch` in your `.env` and have Meilisearch running. To keep search disabled locally, either leave `SCOUT_DRIVER` unset or set it to `null`.
 
 To run Meilisearch locally:
 

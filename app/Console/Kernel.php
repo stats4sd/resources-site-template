@@ -4,6 +4,7 @@ namespace App\Console;
 
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
+use Laravel\Telescope\Telescope;
 
 class Kernel extends ConsoleKernel
 {
@@ -12,7 +13,12 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('app:purge-telescope-entries')->weeklyOn(dayOfWeek: Schedule::TUESDAY);
+        if ($this->app->environment('local')) {
+            if (class_exists(Telescope::class)) {
+                $schedule->command('app:purge-telescope-entries')->weeklyOn(dayOfWeek: Schedule::TUESDAY);
+            }
+        }
+
         $schedule->command('app:prune-superseded-media')->daily();
     }
 
