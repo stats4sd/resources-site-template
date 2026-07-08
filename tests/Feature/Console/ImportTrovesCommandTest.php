@@ -392,6 +392,26 @@ it('dedupes rows whose video_url matches an already-imported locale-specific vid
     expect(Trove::withDrafts()->count())->toBe(1);
 });
 
+it('imports combined per-locale link_url and video_url columns', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_url:fr', 'link_title:en', 'link_title:fr', 'video_url:en', 'video_url:fr'],
+        ['A resource', 'Une ressource', 'https://example.org/en', 'https://example.org/fr', 'Read more', 'En savoir plus', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+
+    expect($trove->getTranslation('external_links', 'en'))->toBe([['link_url' => 'https://example.org/en', 'link_title' => 'Read more']])
+        ->and($trove->getTranslation('external_links', 'fr'))->toBe([['link_url' => 'https://example.org/fr', 'link_title' => 'En savoir plus']])
+        ->and($trove->getTranslation('video_links', 'en')[0]['url'])->toBe('https://www.youtube.com/watch?v=q76bMs-NwRk')
+        ->and($trove->getTranslation('video_links', 'fr')[0]['provider'])->toBe('ecoagtube')
+        ->and($resolver->resolvedUrls)->toHaveCount(2);
+});
+
 it('downloads cover images per locale and warns independently on failure', function () {
     $path = importCsv(
         ['title:en', 'title:fr', 'cover_image_url:en', 'cover_image_url:fr'],
