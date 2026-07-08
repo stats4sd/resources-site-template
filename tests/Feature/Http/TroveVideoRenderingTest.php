@@ -69,8 +69,12 @@ it('renders a mixed list with both treatments and skips urlless entries', functi
         ],
     ]);
 
-    $this->get("/resources/{$trove->slug}")
-        ->assertOk()
+    $response = $this->get("/resources/{$trove->slug}");
+
+    $response->assertOk()
         ->assertSee('https://www.youtube.com/embed/q76bMs-NwRk', false)
         ->assertSee('accessagriculture.org');
+
+    expect(substr_count($response->content(), '<iframe'))->toBe(1)
+        ->and(substr_count($response->content(), 'Watch on'))->toBe(1);
 });

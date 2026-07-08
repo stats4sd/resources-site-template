@@ -4,6 +4,7 @@
     $url = $link['url'] ?? null;
     $embedUrl = ($link['embeddable'] ?? false) ? ($link['embed_url'] ?? null) : null;
     $host = $url ? preg_replace('/^www\./', '', (string) parse_url($url, PHP_URL_HOST)) : null;
+    $host = $host ?: $url;
 @endphp
 
 @if($embedUrl)
