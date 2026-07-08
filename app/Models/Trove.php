@@ -2,28 +2,26 @@
 
 namespace App\Models;
 
-use Carbon\Carbon;
-use App\Enums\ReviewState;
 use App\Enums\PublicationState;
+use App\Enums\ReviewState;
+use App\Models\Scopes\PublishedScope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
-use App\Models\Scopes\PublishedScope;
-use Spatie\MediaLibrary\HasMedia;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Translatable\HasTranslations;
-use Spatie\MediaLibrary\InteractsWithMedia;
-use Spatie\MediaLibrary\Support\MediaStream;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Illuminate\Database\Eloquent\Relations\MorphToMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Spatie\MediaLibrary\MediaCollections\MediaCollection;
 use Parallax\FilamentComments\Models\Traits\HasFilamentComments;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\MediaLibrary\Support\MediaStream;
+use Spatie\Translatable\HasTranslations;
 
 class Trove extends Model implements HasMedia
 {
@@ -41,7 +39,7 @@ class Trove extends Model implements HasMedia
         'trove_type_id' => 'integer',
         'source' => 'boolean',
         'external_links' => 'array',
-        'youtube_links' => 'array',
+        'video_links' => 'array',
         'published_at' => 'datetime',
         'previous_slugs' => 'array',
         'review_requested_at' => 'datetime',
@@ -61,7 +59,7 @@ class Trove extends Model implements HasMedia
         'title',
         'description',
         'external_links',
-        'youtube_links',
+        'video_links',
     ];
 
     protected static function booted(): void
@@ -69,7 +67,7 @@ class Trove extends Model implements HasMedia
         // Public visibility (R1): only published canonical rows by default.
         static::addGlobalScope(new PublishedScope);
 
-        static::creating(function(self $trove) {
+        static::creating(function (self $trove) {
             $trove->slug = $trove->generateSlug();
         });
 
@@ -225,7 +223,6 @@ class Trove extends Model implements HasMedia
         return Attribute::get(fn () => $this->published_at !== null);
     }
 
-
     /** @return string[] relation names copied between a canonical row and its shadow draft */
     public function getDraftableRelations(): array
     {
@@ -307,7 +304,7 @@ class Trove extends Model implements HasMedia
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
                 foreach ($orderedLocales as $locale) {
-                    $url = $this->getFirstMediaUrl('cover_image_' . $locale, 'cover_thumb');
+                    $url = $this->getFirstMediaUrl('cover_image_'.$locale, 'cover_thumb');
                     if ($url) {
                         return $url;
                     }
@@ -390,13 +387,13 @@ class Trove extends Model implements HasMedia
             $description = $this->getTranslation('description', $locale);
 
             // Only add unique, non-empty titles/descriptions
-            if ($title && !in_array($title, $titles)) {
+            if ($title && ! in_array($title, $titles)) {
                 $titles[] = $title;
             }
 
             if ($description) {
                 $description = strip_tags($description);
-                if (!in_array($description, $descriptions)) {
+                if (! in_array($description, $descriptions)) {
                     $descriptions[] = $description;
                 }
             }
@@ -466,23 +463,22 @@ class Trove extends Model implements HasMedia
             $externalLinks = [$externalLinks];
         }
 
-        $youtubeLinks = $this->getTranslation('youtube_links', $locale) ?? [];
-        if (isset($youtubeLinks['youtube_id'])) {
-            $youtubeLinks = [$youtubeLinks];
-        }
-
         $links = collect($externalLinks)
             ->filter(fn ($link) => ! empty($link['link_url']) && ! empty($link['link_title']))
             ->map(fn ($link) => ['title' => $link['link_title'], 'url' => $link['link_url']])
             ->values();
 
-        foreach ($youtubeLinks as $link) {
-            if ($youtubeId = $link['youtube_id'] ?? null) {
-                $links->push([
-                    'title' => 'YouTube video',
-                    'url' => "https://www.youtube.com/watch?v={$youtubeId}",
-                ]);
+        $videoLinks = $this->getTranslation('video_links', $locale) ?? [];
+
+        foreach ($videoLinks as $link) {
+            if (empty($link['url'])) {
+                continue;
             }
+
+            $links->push([
+                'title' => $link['title'] ?? 'Video',
+                'url' => $link['url'],
+            ]);
         }
 
         return $links;
@@ -550,7 +546,7 @@ class Trove extends Model implements HasMedia
         $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
         foreach ($orderedLocales as $locale) {
-            $coverImage = $this->getMedia('cover_image_' . $locale)->first();
+            $coverImage = $this->getMedia('cover_image_'.$locale)->first();
             if ($coverImage) {
                 return $coverImage->getFullUrl();
             }
@@ -569,7 +565,7 @@ class Trove extends Model implements HasMedia
         $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
         foreach ($orderedLocales as $locale) {
-            $media = $this->getMedia('content_' . $locale);
+            $media = $this->getMedia('content_'.$locale);
             if ($media->isNotEmpty()) {
                 return $media;
             }
@@ -582,7 +578,7 @@ class Trove extends Model implements HasMedia
     {
 
         // never update the slug of a published version
-        if($this->slug !== null && $this->has_published_version) {
+        if ($this->slug !== null && $this->has_published_version) {
             return $this->slug;
         }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\TroveResource\Pages;
 
 use App\Filament\Resources\TroveResource;
 use App\Filament\Resources\TroveResource\Concerns\HasTroveFormActions;
+use App\Filament\Resources\TroveResource\Concerns\ResolvesVideoLinkFormData;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Enums\Alignment;
 use Illuminate\Database\Eloquent\Model;
@@ -11,14 +12,22 @@ use Illuminate\Database\Eloquent\Model;
 class CreateTrove extends CreateRecord
 {
     use HasTroveFormActions;
+    use ResolvesVideoLinkFormData;
 
     protected static string $resource = TroveResource::class;
+
     protected static bool $canCreateAnother = false;
+
     public static string|Alignment $formActionsAlignment = Alignment::End;
 
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
+    }
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        return $this->resolveVideoLinkFormData($data);
     }
 
     protected function handleRecordCreation(array $data): Model

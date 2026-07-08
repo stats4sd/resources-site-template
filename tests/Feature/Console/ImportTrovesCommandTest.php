@@ -1,11 +1,13 @@
 <?php
 
+use App\Contracts\ResolvesVideoLinks;
 use App\Models\Collection;
 use App\Models\Tag;
 use App\Models\TagType;
 use App\Models\Trove;
 use App\Models\TroveType;
 use App\Models\User;
+use App\Support\VideoLink\VideoLinkResult;
 
 /**
  * troves:import — CSV bulk import (see docs/import/README.md).
@@ -26,6 +28,37 @@ function importCsv(array $header, array ...$rows): string
     fclose($handle);
 
     return $path;
+}
+
+/** Bind a spying fake resolver: ecoagtube URLs resolve embeddable, everything else link-only. */
+function fakeVideoResolver(): ResolvesVideoLinks
+{
+    $fake = new class implements ResolvesVideoLinks
+    {
+        public array $resolvedUrls = [];
+
+        public function resolve(string $url): VideoLinkResult
+        {
+            $this->resolvedUrls[] = $url;
+
+            if (str_contains($url, 'ecoagtube')) {
+                return new VideoLinkResult(
+                    url: $url,
+                    provider: 'ecoagtube',
+                    embedUrl: 'https://www.ecoagtube.org/embed/32021',
+                    embeddable: true,
+                    title: 'EcoAgTube video',
+                    resolvedUrl: $url,
+                );
+            }
+
+            return new VideoLinkResult(url: $url, resolvedUrl: $url);
+        }
+    };
+
+    app()->instance(ResolvesVideoLinks::class, $fake);
+
+    return $fake;
 }
 
 beforeEach(function () {
@@ -74,6 +107,8 @@ it('imports troves with tags and collections from a csv', function () {
 });
 
 it('publishes imported troves with --publish', function () {
+    fakeVideoResolver();
+
     $path = importCsv(
         ['title:en', 'youtube_url'],
         ['A video', 'https://www.youtube.com/watch?v=q76bMs-NwRk'],
@@ -84,7 +119,14 @@ it('publishes imported troves with --publish', function () {
 
     $trove = Trove::withDrafts()->firstOrFail();
     expect($trove->published_at)->not->toBeNull()
-        ->and($trove->getTranslation('youtube_links', 'en'))->toBe([['youtube_id' => 'q76bMs-NwRk']]);
+        ->and($trove->getTranslation('video_links', 'en'))->toBe([[
+            'url' => 'https://www.youtube.com/watch?v=q76bMs-NwRk',
+            'provider' => null,
+            'embed_url' => null,
+            'embeddable' => false,
+            'title' => null,
+            'resolved_url' => 'https://www.youtube.com/watch?v=q76bMs-NwRk',
+        ]]);
 });
 
 it('writes nothing on --dry-run', function () {
@@ -186,4 +228,63 @@ it('fails cleanly on a missing uploader or unreadable file', function () {
 
     $this->artisan('troves:import', ['file' => '/nonexistent.csv', '--uploader' => 'importer@example.com'])
         ->assertExitCode(1);
+});
+
+it('imports a video_url row resolved through the video link resolver', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'video_url'],
+        ['Eco video', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+
+    expect($resolver->resolvedUrls)->toBe(['https://www.ecoagtube.org/content/biofertilizer-formulation-1'])
+        ->and($trove->getTranslation('video_links', 'en'))->toBe([[
+            'url' => 'https://www.ecoagtube.org/content/biofertilizer-formulation-1',
+            'provider' => 'ecoagtube',
+            'embed_url' => 'https://www.ecoagtube.org/embed/32021',
+            'embeddable' => true,
+            'title' => 'EcoAgTube video',
+            'resolved_url' => 'https://www.ecoagtube.org/content/biofertilizer-formulation-1',
+        ]]);
+});
+
+it('skips duplicate video urls within a file and against the database', function () {
+    fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'video_url'],
+        ['Eco video', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+        ['Eco video again', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+});
+
+it('does not resolve video urls during a dry run', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'video_url'],
+        ['Eco video', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com', '--dry-run' => true])
+        ->assertExitCode(0);
+
+    expect($resolver->resolvedUrls)->toBe([])
+        ->and(Trove::withDrafts()->count())->toBe(0);
 });

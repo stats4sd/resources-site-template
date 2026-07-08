@@ -13,6 +13,7 @@
         "php": "^8.3",
         "awcodes/shout": "^4.0",
         "chrisreedio/socialment": "^5.1",
+        "embed/embed": "^4.4",
         "filament/filament": "^5.0",
         "filament/spatie-laravel-media-library-plugin": "^5.0",
         "guzzlehttp/guzzle": "^7.2",

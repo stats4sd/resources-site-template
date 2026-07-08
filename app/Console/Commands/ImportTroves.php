@@ -2,12 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Contracts\ResolvesVideoLinks;
 use App\Models\Collection;
 use App\Models\TagType;
 use App\Models\Trove;
 use App\Models\TroveType;
 use App\Models\User;
 use App\Services\TrovePublisher;
+use App\Services\VideoLink\YouTubeAdapter;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -36,16 +38,18 @@ class ImportTroves extends Command
 
     protected $description = 'Bulk-import troves (with tags, tag types and collections) from a CSV file.';
 
-    /** Recognised single-value columns; title:*, description:* and tag:* are matched by pattern. */
-    private const FIXED_COLUMNS = [
+    /** @var list<string> Recognised single-value columns; title:*, description:* and tag:* are matched by pattern. */
+    private array $fixedColumns = [
         'trove_type',
         'creation_date',
         'link_url',
         'link_title',
-        'youtube_url',
+        'video_url',
         'cover_image_url',
         'collections',
     ];
+
+    private ResolvesVideoLinks $videoLinkResolver;
 
     /** @var array<string, int|true> URL / "yt:<id>" keys of troves already in the DB or earlier in the file */
     private array $seenSourceKeys = [];
@@ -59,8 +63,10 @@ class ImportTroves extends Command
     /** @var array<string, int> [lowercased trove type label (any locale) => trove type id] */
     private array $troveTypeIndex = [];
 
-    public function handle(TrovePublisher $publisher): int
+    public function handle(TrovePublisher $publisher, ResolvesVideoLinks $videoLinkResolver): int
     {
+        $this->videoLinkResolver = $videoLinkResolver;
+
         $path = $this->argument('file');
         if (! is_readable($path)) {
             $this->error("Cannot read file \"{$path}\".");
@@ -134,6 +140,16 @@ class ImportTroves extends Command
             return self::SUCCESS;
         }
 
+        foreach ($plan['rows'] as &$planRow) {
+            if ($planRow['video_url'] === null) {
+                continue;
+            }
+
+            $this->line("  Resolving video {$planRow['video_url']}...");
+            $planRow['video_links'] = [$planRow['primary_locale'] => [$this->videoLinkResolver->resolve($planRow['video_url'])->toArray()]];
+        }
+        unset($planRow);
+
         $created = $this->executePlan($plan, $tagTypes, $tagTypesToCreate, $uploader, $publisher, $locales[0]);
 
         if (! $this->option('skip-media')) {
@@ -198,6 +214,10 @@ class ImportTroves extends Command
         foreach ($header as $index => $raw) {
             $name = strtolower(trim((string) $raw));
 
+            if ($name === 'youtube_url') {
+                $name = 'video_url';
+            }
+
             if ($name === '') {
                 $errors[] = 'Column '.($index + 1).' has an empty header.';
             } elseif (preg_match('/^(title|description):([a-z0-9_-]+)$/', $name, $m)) {
@@ -208,10 +228,10 @@ class ImportTroves extends Command
                 }
             } elseif (preg_match('/^tag:([a-z0-9_-]+)$/', $name, $m)) {
                 $columns['tags'][$m[1]] = $index;
-            } elseif (in_array($name, self::FIXED_COLUMNS, true)) {
+            } elseif (in_array($name, $this->fixedColumns, true)) {
                 $columns['fixed'][$name] = $index;
             } else {
-                $errors[] = "Unrecognised column \"{$name}\". Valid columns: title:<locale>, description:<locale>, tag:<tag-type-slug>, ".implode(', ', self::FIXED_COLUMNS).'.';
+                $errors[] = "Unrecognised column \"{$name}\". Valid columns: title:<locale>, description:<locale>, tag:<tag-type-slug>, ".implode(', ', $this->fixedColumns).'.';
             }
         }
 
@@ -250,7 +270,7 @@ class ImportTroves extends Command
             }
         }
 
-        $existing = Trove::withDrafts()->withTrashed()->get(['id', 'external_links', 'youtube_links']);
+        $existing = Trove::withDrafts()->withTrashed()->get(['id', 'external_links', 'video_links']);
         foreach ($existing as $trove) {
             foreach ($trove->getTranslations('external_links') as $links) {
                 foreach ($this->normaliseLinkList($links) as $link) {
@@ -259,10 +279,10 @@ class ImportTroves extends Command
                     }
                 }
             }
-            foreach ($trove->getTranslations('youtube_links') as $links) {
+            foreach ($trove->getTranslations('video_links') as $links) {
                 foreach ($this->normaliseLinkList($links) as $link) {
-                    if (! empty($link['youtube_id'])) {
-                        $this->seenSourceKeys['yt:'.$link['youtube_id']] = $trove->id;
+                    if (! empty($link['url'])) {
+                        $this->seenSourceKeys[$this->videoSourceKey($link['url'])] = $trove->id;
                     }
                 }
             }
@@ -279,7 +299,7 @@ class ImportTroves extends Command
             return [];
         }
 
-        return (isset($links['link_url']) || isset($links['youtube_id'])) ? [$links] : $links;
+        return (isset($links['link_url']) || isset($links['youtube_id']) || isset($links['url'])) ? [$links] : $links;
     }
 
     /**
@@ -338,11 +358,14 @@ class ImportTroves extends Command
                 $errors[] = "invalid link_url \"{$linkUrl}\"";
             }
 
-            $youtubeId = null;
-            if (($youtubeUrl = $fixed('youtube_url')) !== '') {
-                $youtubeId = $this->extractYoutubeId($youtubeUrl);
-                if ($youtubeId === null) {
-                    $errors[] = "could not extract a YouTube video ID from \"{$youtubeUrl}\"";
+            $videoUrl = $fixed('video_url');
+            if ($videoUrl !== '') {
+                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $videoUrl)) {
+                    $videoUrl = "https://www.youtube.com/watch?v={$videoUrl}";
+                }
+
+                if (! filter_var($videoUrl, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid video_url \"{$videoUrl}\"";
                 }
             }
 
@@ -361,7 +384,7 @@ class ImportTroves extends Command
             // link or video — in the DB or earlier in this file — makes re-runs idempotent.
             $sourceKeys = array_values(array_filter([
                 $linkUrl !== '' ? $linkUrl : null,
-                $youtubeId !== null ? 'yt:'.$youtubeId : null,
+                $videoUrl !== '' ? $this->videoSourceKey($videoUrl) : null,
             ]));
             $duplicateKey = collect($sourceKeys)->first(fn ($key) => isset($this->seenSourceKeys[$key]));
             if ($duplicateKey !== null) {
@@ -405,9 +428,8 @@ class ImportTroves extends Command
                 'external_links' => $linkUrl !== ''
                     ? [$primaryLocale => [['link_url' => $linkUrl, 'link_title' => $fixed('link_title') ?: 'View resource']]]
                     : null,
-                'youtube_links' => $youtubeId !== null
-                    ? [$primaryLocale => [['youtube_id' => $youtubeId]]]
-                    : null,
+                'video_url' => $videoUrl !== '' ? $videoUrl : null,
+                'video_links' => null,
                 'cover_image_url' => $coverImageUrl,
                 'tags' => $tags,
                 'collections' => array_keys($collections),
@@ -422,24 +444,15 @@ class ImportTroves extends Command
         return array_values(array_unique(array_filter(array_map('trim', explode('|', $value)), fn ($v) => $v !== '')));
     }
 
-    private function extractYoutubeId(string $url): ?string
+    private function videoSourceKey(string $url): string
     {
-        if (preg_match('/^[A-Za-z0-9_-]{11}$/', $url)) {
-            return $url;
+        $youtubeId = YouTubeAdapter::extractId($url);
+
+        if ($youtubeId !== null) {
+            return "yt:{$youtubeId}";
         }
 
-        foreach ([
-            '/youtube\.com\/watch\?.*v=([A-Za-z0-9_-]{11})/',
-            '/youtu\.be\/([A-Za-z0-9_-]{11})/',
-            '/youtube\.com\/embed\/([A-Za-z0-9_-]{11})/',
-            '/youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/',
-        ] as $pattern) {
-            if (preg_match($pattern, $url, $m)) {
-                return $m[1];
-            }
-        }
-
-        return null;
+        return 'vid:'.mb_strtolower(rtrim($url, '/'));
     }
 
     private function printPlan(array $plan, array $tagTypesToCreate): void
@@ -521,7 +534,7 @@ class ImportTroves extends Command
                         $trove->description = $row['description'];
                         $trove->trove_type_id = $row['trove_type_id'];
                         $trove->external_links = $row['external_links'];
-                        $trove->youtube_links = $row['youtube_links'];
+                        $trove->video_links = $row['video_links'] ?? null;
                         $trove->creation_date = $row['creation_date'];
                         $trove->source = false;
                         $trove->uploader_id = $uploader->id;

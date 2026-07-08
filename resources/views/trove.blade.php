@@ -121,13 +121,9 @@
         }
         $mediaFiles = $resource->getContentMedia();
 
-        $youtubeLinks = $resource->getTranslation('youtube_links', app()->getLocale());
-        if (isset($youtubeLinks['youtube_id'])) {
-            $youtubeLinks = [$youtubeLinks];
-        }
-        if (! ($youtubeLinks[0]['youtube_id'] ?? null)) {
-            $youtubeLinks = null;
-        }
+        $videoLinks = collect($resource->getTranslation('video_links', app()->getLocale()) ?? [])
+            ->filter(fn ($link) => is_array($link) && ! empty($link['url']))
+            ->values();
     @endphp
 
 
@@ -137,22 +133,16 @@
     <div class="text-gray-700 leading-relaxed">{!! t($resource->description) !!}</div>
 
     <!-- View / Download -->
-    @if($youtubeLinks || ($externalLinks && is_array($externalLinks)) || $mediaFiles->isNotEmpty())
+    @if($videoLinks->isNotEmpty() || ($externalLinks && is_array($externalLinks)) || $mediaFiles->isNotEmpty())
         <div class="mt-16">
             <div class="divider"></div>
             <h2 class="text-2xl font-bold mb-4">{{ t('View / Download') }}</h2>
 
-            <!-- Embedded YouTube Videos -->
-            @if($youtubeLinks)
+            <!-- Embedded Videos -->
+            @if($videoLinks->isNotEmpty())
                 <div class="mb-8 space-y-4">
-                    @foreach($youtubeLinks as $link)
-                        @php $youtubeId = $link['youtube_id'] ?? null; @endphp
-                        @if($youtubeId)
-                            <div class="rounded-2xl overflow-hidden shadow-sm max-w-2xl mx-auto">
-                                <iframe class="w-full aspect-video" src="https://www.youtube.com/embed/{{ $youtubeId }}"
-                                    frameborder="0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-                            </div>
-                        @endif
+                    @foreach($videoLinks as $link)
+                        <x-video-link :link="$link" />
                     @endforeach
                 </div>
             @endif
@@ -213,7 +203,7 @@
                 @endforeach
             </div>
 
-            @if($downloadItems->isNotEmpty() || $youtubeLinks)
+            @if($downloadItems->isNotEmpty() || $videoLinks->isNotEmpty())
                 <div class="flex justify-end mt-6">
                     <a href="{{ route('trove.download.zip', ['slug' => $resource->slug]) }}"
                         class="flex items-center gap-2 bg-brand-primary text-white font-semibold uppercase tracking-wide text-sm px-6 py-3 rounded-full hover:opacity-90 transition">

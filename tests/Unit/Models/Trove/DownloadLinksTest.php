@@ -1,10 +1,11 @@
 <?php
 
 use App\Models\Trove;
+use Illuminate\Support\Collection;
 
 // getDownloadableLinks()/buildLinksManifest() are protected and purely translate the
-// external_links / youtube_links JSON — no DB or disk needed. Bind a closure to reach them.
-function downloadableLinks(Trove $trove, string $locale = 'en'): \Illuminate\Support\Collection
+// external_links / video_links JSON — no DB or disk needed. Bind a closure to reach them.
+function downloadableLinks(Trove $trove, string $locale = 'en'): Collection
 {
     return (fn () => $this->getDownloadableLinks($locale))->call($trove);
 }
@@ -45,18 +46,29 @@ it('keeps an array of external links and filters out incomplete ones', function 
     ]);
 });
 
-it('builds youtube watch URLs from single and array forms', function () {
-    $single = makeTroveWithLinks(['youtube_links' => ['en' => ['youtube_id' => 'abc123']]]);
-    $many = makeTroveWithLinks(['youtube_links' => ['en' => [
-        ['youtube_id' => 'abc123'],
-        ['youtube_id' => 'def456'],
+it('uses stored video link urls and titles for the manifest', function () {
+    $trove = makeTroveWithLinks(['video_links' => ['en' => [
+        [
+            'url' => 'https://www.youtube.com/watch?v=abc123',
+            'provider' => 'youtube',
+            'embed_url' => 'https://www.youtube.com/embed/abc123',
+            'embeddable' => true,
+            'title' => 'Named video',
+            'resolved_url' => 'https://www.youtube.com/watch?v=abc123',
+        ],
+        [
+            'url' => 'https://www.accessagriculture.org/crop-rotation-legumes',
+            'provider' => null,
+            'embed_url' => null,
+            'embeddable' => false,
+            'title' => null,
+            'resolved_url' => 'https://www.accessagriculture.org/crop-rotation-legumes',
+        ],
     ]]]);
 
-    expect(downloadableLinks($single)->all())->toBe([
-        ['title' => 'YouTube video', 'url' => 'https://www.youtube.com/watch?v=abc123'],
-    ])->and(downloadableLinks($many)->pluck('url')->all())->toBe([
-        'https://www.youtube.com/watch?v=abc123',
-        'https://www.youtube.com/watch?v=def456',
+    expect(downloadableLinks($trove)->all())->toBe([
+        ['title' => 'Named video', 'url' => 'https://www.youtube.com/watch?v=abc123'],
+        ['title' => 'Video', 'url' => 'https://www.accessagriculture.org/crop-rotation-legumes'],
     ]);
 });
 

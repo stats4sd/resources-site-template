@@ -29,15 +29,15 @@ Column order doesn't matter. Unrecognised column names abort the import (protect
 | `description:<locale>` | Optional, same locale convention. |
 | `trove_type` | Matched case-insensitively against trove type labels in any locale (e.g. `Video`, `Guide`). Unknown values are errors — trove types are deliberate, create them in the admin panel first. Blank = no type. |
 | `creation_date` | ISO format (`2023-05-14`) recommended. Blank = today. |
-| `link_url` / `link_title` | External link (ecoagtube links go here, **not** in `youtube_url`). `link_title` defaults to "View resource". |
-| `youtube_url` | Real YouTube links only — any usual form (`watch?v=`, `youtu.be/`, `embed/`, `shorts/`, or a bare 11-char ID). The video ID is extracted and stored; the frontend embeds the player. |
+| `link_url` / `link_title` | External link. `link_title` defaults to "View resource". |
+| `video_url` | Share URL of a video (YouTube, Vimeo, EcoAgTube, …), or a bare 11-char YouTube ID. The URL is resolved at import time: embeddable videos get an embedded player on the public page, others a link card. `youtube_url` is accepted as a legacy alias for this column. |
 | `cover_image_url` | Downloaded after import into the primary locale's cover collection; a failed download warns and continues. |
 | `collections` | Pipe-separated collection titles, matched case-insensitively across locales; created as public collections if missing. |
 | `tag:<tag-type-slug>` | One column per tag type (e.g. `tag:topics`), pipe-separated tag names. Tags matched case-insensitively across locales within the type; created under the site default locale if missing. Unknown slugs abort unless `--create-tag-types` is passed. |
 
 ## Behaviour notes
 
-- **Idempotent re-runs**: a row whose `link_url` or YouTube ID already exists on any trove (including drafts and trashed) — or earlier in the same file — is skipped and reported. Amending the CSV and re-running only imports the new rows.
+- **Idempotent re-runs**: a row whose `link_url` or video source (YouTube video ID for YouTube URLs, or normalised video URL for all other hosts) already exists on any trove (including drafts and trashed) — or earlier in the same file — is skipped and reported. Amending the CSV and re-running only imports the new rows.
 - **Search**: index syncing is disabled during the import. If Meilisearch is active (`SCOUT_DRIVER=meilisearch`) and you published, reindex afterwards: `php artisan scout:import "App\Models\Trove"` and `php artisan scout:import "App\Models\Collection"`.
 - **Multi-value separator** is a pipe (`|`) so tag and collection names may contain commas.
 - Save the file as UTF-8; an Excel BOM is handled.

@@ -8,11 +8,11 @@ beforeEach(function () {
 });
 
 // NB: downloadAllFilesAsZip() always calls getDownloadableLinks(), which iterates the
-// youtube_links/external_links translations. A genuinely null links column makes
+// video_links/external_links translations. A genuinely null links column makes
 // getTranslation() return '' (not null), which the method's `?? []` guard misses and a
 // foreach then chokes on — a latent fragility flagged in the change log. Here we give the
 // troves explicit (empty) link translations so we exercise the intended download paths.
-$emptyLinks = ['external_links' => ['en' => []], 'youtube_links' => ['en' => []]];
+$emptyLinks = ['external_links' => ['en' => []], 'video_links' => ['en' => []]];
 
 it('streams a zip when the trove has downloadable content media', function () use ($emptyLinks) {
     $trove = publishedTrove($emptyLinks);
