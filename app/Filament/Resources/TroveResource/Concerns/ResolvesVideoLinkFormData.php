@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TroveResource\Concerns;
 
 use App\Contracts\ResolvesVideoLinks;
+use Throwable;
 
 trait ResolvesVideoLinkFormData
 {
@@ -39,7 +40,11 @@ trait ResolvesVideoLinkFormData
                 }
 
                 if (($row['resolved_url'] ?? null) !== $url) {
-                    $row = array_merge($row, $resolver->resolve($url)->toArray());
+                    try {
+                        $row = array_merge($row, $resolver->resolve($url)->toArray());
+                    } catch (Throwable) {
+                        $row = array_merge($row, ['embeddable' => false, 'embed_url' => null, 'resolved_url' => $url]);
+                    }
                 }
 
                 $resolvedRows[] = $row;

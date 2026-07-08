@@ -37,6 +37,7 @@ use Kainiklas\FilamentScout\Traits\InteractsWithScout;
 use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use Livewire\Component;
 use Parallax\FilamentComments\Tables\Actions\CommentsAction;
+use Throwable;
 
 class TroveResource extends Resource
 {
@@ -207,13 +208,19 @@ class TroveResource extends Resource
                                                         return;
                                                     }
 
-                                                    $result = app(ResolvesVideoLinks::class)->resolve($state);
+                                                    try {
+                                                        $result = app(ResolvesVideoLinks::class)->resolve($state);
 
-                                                    $set('provider', $result->provider);
-                                                    $set('embed_url', $result->embedUrl);
-                                                    $set('embeddable', $result->embeddable);
-                                                    $set('title', $result->title);
-                                                    $set('resolved_url', $result->resolvedUrl);
+                                                        $set('provider', $result->provider);
+                                                        $set('embed_url', $result->embedUrl);
+                                                        $set('embeddable', $result->embeddable);
+                                                        $set('title', $result->title);
+                                                        $set('resolved_url', $result->resolvedUrl);
+                                                    } catch (Throwable) {
+                                                        $set('embeddable', false);
+                                                        $set('embed_url', null);
+                                                        $set('resolved_url', $state);
+                                                    }
                                                 }),
                                             Forms\Components\Hidden::make('provider'),
                                             Forms\Components\Hidden::make('embed_url'),

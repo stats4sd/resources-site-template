@@ -61,6 +61,10 @@ it('resolves unresolved video links on create', function () {
 it('does not re-resolve rows whose resolution already matches the url', function () {
     $type = TroveType::factory()->create();
 
+    // fillForm fires url's afterStateUpdated mid-fill (overwriting title with the fake
+    // resolver's value); the later keys in this row then restore title/resolved_url.
+    // The final assertion therefore depends on fillForm processing keys in insertion
+    // order — if this ever breaks, suspect that order, not the mutate hook.
     Livewire::test(CreateTrove::class)
         ->fillForm(videoTroveFormData($type, [[
             'url' => 'https://youtu.be/q76bMs-NwRk',
@@ -103,4 +107,27 @@ it('re-resolves rows whose url changed after resolution and drops empty rows', f
 
     expect($stored)->toHaveCount(1)
         ->and($stored[0]['title'])->toBe('Resolved title');
+});
+
+it('saves the trove even when the resolver throws', function () {
+    app()->instance(ResolvesVideoLinks::class, new class implements ResolvesVideoLinks
+    {
+        public function resolve(string $url): VideoLinkResult
+        {
+            throw new RuntimeException('resolver exploded');
+        }
+    });
+
+    $type = TroveType::factory()->create();
+
+    Livewire::test(CreateTrove::class)
+        ->fillForm(videoTroveFormData($type, [['url' => 'https://youtu.be/q76bMs-NwRk']]))
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $stored = Trove::withDrafts()->firstWhere('slug', 'video-trove')->getTranslation('video_links', 'en');
+
+    expect($stored)->toHaveCount(1)
+        ->and($stored[0]['url'])->toBe('https://youtu.be/q76bMs-NwRk')
+        ->and($stored[0]['embeddable'])->toBeFalse();
 });
