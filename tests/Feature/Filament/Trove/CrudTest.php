@@ -34,6 +34,25 @@ it('creates an unpublished trove via the create form', function () {
         ->and($trove->trove_type_id)->toBe($type->id);
 });
 
+it('sanitises the description HTML on save, stripping scripts and event handlers', function () {
+    $type = TroveType::factory()->create();
+
+    Livewire::test(CreateTrove::class)
+        ->fillForm([
+            ...validTroveFormData($type),
+            'title' => ['en' => 'Dangerous Trove'],
+            'description' => ['en' => '<p>Safe <strong>bold</strong></p><script>alert(1)</script><p onclick="evil()">x</p>'],
+        ])
+        ->call('create')
+        ->assertHasNoFormErrors();
+
+    $stored = Trove::withDrafts()->firstWhere('slug', 'dangerous-trove')->getTranslation('description', 'en');
+
+    expect($stored)->toContain('<strong>bold</strong>')
+        ->and($stored)->not->toContain('<script>')
+        ->and($stored)->not->toContain('onclick');
+});
+
 it('publishes a trove through the publish form action', function () {
     $type = TroveType::factory()->create();
 

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Models\Tag;
 use App\Enums\ReviewState;
+use App\Support\HtmlSanitizer;
 use Filament\Forms;
 use Filament\Tables;
 use App\Models\Trove;
@@ -97,7 +98,8 @@ class TroveResource extends Resource
                                     Forms\Components\RichEditor::make('description')
                                     ->disableToolbarButtons([
                                         'attachFiles'
-                                    ]),
+                                    ])
+                                    ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
                                 )
                                 ->required(),
 
