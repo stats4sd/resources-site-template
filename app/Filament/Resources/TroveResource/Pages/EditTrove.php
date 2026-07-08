@@ -6,6 +6,7 @@ use App\Enums\PublicationState;
 use App\Enums\ReviewState;
 use App\Filament\Resources\TroveResource;
 use App\Filament\Resources\TroveResource\Concerns\HasTroveFormActions;
+use App\Filament\Resources\TroveResource\Concerns\ResolvesVideoLinkFormData;
 use App\Models\Trove;
 use App\Services\TrovePublisher;
 use Filament\Actions;
@@ -21,6 +22,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 class EditTrove extends EditRecord
 {
     use HasTroveFormActions;
+    use ResolvesVideoLinkFormData;
 
     protected static string $resource = TroveResource::class;
 
@@ -260,6 +262,11 @@ class EditTrove extends EditRecord
 
             $component->state($new);
         }
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        return $this->resolveVideoLinkFormData($data);
     }
 
     protected function afterSave(): void

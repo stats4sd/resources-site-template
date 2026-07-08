@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Contracts\ResolvesVideoLinks;
 use App\Enums\ReviewState;
 use App\Filament\Resources\TroveResource\Pages;
 use App\Filament\Translatable\Form\TranslatableComboField;
@@ -20,6 +21,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
@@ -185,16 +188,48 @@ class TroveResource extends Resource
                                 ->icon('heroicon-o-video-camera')
                                 ->iconColor('primary')
                                 ->extraAttributes(['class' => 'grey-box'])
-                                ->heading(__('YouTube Videos'))
-                                ->hint('Add the youtube id if you have added a video file that already exists on YouTube. On YouTube, when you hit "share", the id is the random-like string after https://youtu.be/')
+                                ->heading(__('Videos'))
+                                ->hint(__('Paste the video\'s share URL (YouTube, Vimeo, EcoAgTube, …). If the video can\'t be embedded, the public page shows a link to it instead.'))
                                 ->columns(3)
                                 ->childField(
                                     Repeater::make('video_links')
                                         ->schema([
-                                            TextInput::make('youtube_id')
-                                                ->label('YouTube ID'),
+                                            TextInput::make('url')
+                                                ->label(__('Video URL'))
+                                                ->url()
+                                                ->live(onBlur: true)
+                                                ->afterStateUpdated(function (?string $state, Set $set) {
+                                                    if (blank($state)) {
+                                                        foreach (['provider', 'embed_url', 'embeddable', 'title', 'resolved_url'] as $resolvedField) {
+                                                            $set($resolvedField, null);
+                                                        }
+
+                                                        return;
+                                                    }
+
+                                                    $result = app(ResolvesVideoLinks::class)->resolve($state);
+
+                                                    $set('provider', $result->provider);
+                                                    $set('embed_url', $result->embedUrl);
+                                                    $set('embeddable', $result->embeddable);
+                                                    $set('title', $result->title);
+                                                    $set('resolved_url', $result->resolvedUrl);
+                                                }),
+                                            Forms\Components\Hidden::make('provider'),
+                                            Forms\Components\Hidden::make('embed_url'),
+                                            Forms\Components\Hidden::make('embeddable'),
+                                            Forms\Components\Hidden::make('title'),
+                                            Forms\Components\Hidden::make('resolved_url'),
+                                            Forms\Components\Placeholder::make('status')
+                                                ->hiddenLabel()
+                                                ->content(fn (Get $get): string => match (true) {
+                                                    blank($get('url')) => '',
+                                                    (bool) $get('embeddable') => __('Embeds on the page').($get('title') ? ' — '.$get('title') : ''),
+                                                    filled($get('provider')) || filled($get('title')) => __('Link only — the public page will show a link card for this video.'),
+                                                    default => __('Couldn\'t verify this URL — it will be shown as a plain link.'),
+                                                }),
                                         ])
-                                        ->addActionLabel('Add a YouTube video'),
+                                        ->addActionLabel(__('Add a video')),
                                 ),
                         ]),
 
