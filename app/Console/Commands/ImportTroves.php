@@ -38,15 +38,19 @@ class ImportTroves extends Command
 
     protected $description = 'Bulk-import troves (with tags, tag types and collections) from a CSV file.';
 
-    /** @var list<string> Recognised single-value columns; title:*, description:* and tag:* are matched by pattern. */
+    /** @var list<string> Recognised single-value columns that don't support a locale suffix. */
     private array $fixedColumns = [
         'trove_type',
         'creation_date',
+        'collections',
+    ];
+
+    /** @var list<string> Columns that may be given flat (primary-locale only) or as one "<name>:<locale>" column per locale, not both. */
+    private array $localizableColumns = [
         'link_url',
         'link_title',
         'video_url',
         'cover_image_url',
-        'collections',
     ];
 
     private ResolvesVideoLinks $videoLinkResolver;
@@ -141,12 +145,16 @@ class ImportTroves extends Command
         }
 
         foreach ($plan['rows'] as &$planRow) {
-            if ($planRow['video_url'] === null) {
+            if (! $planRow['video_urls']) {
                 continue;
             }
 
-            $this->line("  Resolving video {$planRow['video_url']}...");
-            $planRow['video_links'] = [$planRow['primary_locale'] => [$this->videoLinkResolver->resolve($planRow['video_url'])->toArray()]];
+            $videoLinks = [];
+            foreach ($planRow['video_urls'] as $locale => $url) {
+                $this->line("  Resolving video {$url}...");
+                $videoLinks[$locale] = [$this->videoLinkResolver->resolve($url)->toArray()];
+            }
+            $planRow['video_links'] = $videoLinks;
         }
         unset($planRow);
 
@@ -205,33 +213,47 @@ class ImportTroves extends Command
      * Map header cells to column indexes. Unknown headers are errors — a typo'd column
      * silently ignored would mean silently dropped data.
      *
-     * @return array{title: array<string, int>, description: array<string, int>, fixed: array<string, int>, tags: array<string, int>}
+     * @return array{
+     *     title: array<string, int>,
+     *     description: array<string, int>,
+     *     fixed: array<string, int>,
+     *     tags: array<string, int>,
+     *     localized: array<string, array<string, int>>
+     * }
      */
     private function parseHeader(array $header, array $locales, array &$errors): array
     {
-        $columns = ['title' => [], 'description' => [], 'fixed' => [], 'tags' => []];
+        $columns = ['title' => [], 'description' => [], 'fixed' => [], 'tags' => [], 'localized' => []];
 
         foreach ($header as $index => $raw) {
             $name = strtolower(trim((string) $raw));
 
-            if ($name === 'youtube_url') {
-                $name = 'video_url';
+            if ($name === 'youtube_url' || str_starts_with($name, 'youtube_url:')) {
+                $name = 'video_url'.substr($name, strlen('youtube_url'));
             }
 
             if ($name === '') {
                 $errors[] = 'Column '.($index + 1).' has an empty header.';
-            } elseif (preg_match('/^(title|description):([a-z0-9_-]+)$/', $name, $m)) {
-                if (! in_array($m[2], $locales, true)) {
-                    $errors[] = "Column \"{$name}\": locale \"{$m[2]}\" is not configured on this site (configured: ".implode(', ', $locales).').';
+            } elseif (preg_match('/^(title|description):([a-z0-9_-]+)$/', $name, $matches)) {
+                if (! in_array($matches[2], $locales, true)) {
+                    $errors[] = "Column \"{$name}\": locale \"{$matches[2]}\" is not configured on this site (configured: ".implode(', ', $locales).').';
                 } else {
-                    $columns[$m[1]][$m[2]] = $index;
+                    $columns[$matches[1]][$matches[2]] = $index;
                 }
-            } elseif (preg_match('/^tag:([a-z0-9_-]+)$/', $name, $m)) {
-                $columns['tags'][$m[1]] = $index;
+            } elseif (preg_match('/^tag:([a-z0-9_-]+)$/', $name, $matches)) {
+                $columns['tags'][$matches[1]] = $index;
+            } elseif (preg_match('/^('.implode('|', $this->localizableColumns).'):([a-z0-9_-]+)$/', $name, $matches)) {
+                if (! in_array($matches[2], $locales, true)) {
+                    $errors[] = "Column \"{$name}\": locale \"{$matches[2]}\" is not configured on this site (configured: ".implode(', ', $locales).').';
+                } else {
+                    $columns['localized'][$matches[1]][$matches[2]] = $index;
+                }
+            } elseif (in_array($name, $this->localizableColumns, true)) {
+                $columns['localized'][$name]['flat'] = $index;
             } elseif (in_array($name, $this->fixedColumns, true)) {
                 $columns['fixed'][$name] = $index;
             } else {
-                $errors[] = "Unrecognised column \"{$name}\". Valid columns: title:<locale>, description:<locale>, tag:<tag-type-slug>, ".implode(', ', $this->fixedColumns).'.';
+                $errors[] = "Unrecognised column \"{$name}\". Valid columns: title:<locale>, description:<locale>, tag:<tag-type-slug>, ".implode(', ', $this->fixedColumns).', and '.implode(', ', $this->localizableColumns).' (each either flat or as "<name>:<locale>").';
             }
         }
 
@@ -239,7 +261,41 @@ class ImportTroves extends Command
             $errors[] = 'At least one "title:<locale>" column is required.';
         }
 
+        foreach ($this->localizableColumns as $name) {
+            $localeSuffixes = array_values(array_diff(array_keys($columns['localized'][$name] ?? []), ['flat']));
+
+            if (isset($columns['localized'][$name]['flat'])) {
+                if ($localeSuffixes) {
+                    $errors[] = "Column \"{$name}\" is defined both as a flat column and with locale suffixes ({$name}:{$localeSuffixes[0]}); use one style, not both.";
+                }
+            }
+        }
+
         return $columns;
+    }
+
+    /**
+     * Extract a row's non-empty values for one localizable column, keyed by locale. A flat
+     * column (no locale suffix in the header) targets the row's primary locale.
+     *
+     * @param  array<string, int>  $columnMap  locale (or "flat") => column index
+     * @return array<string, string>
+     */
+    private function localizedColumnValues(array $columnMap, array $row, string $primaryLocale): array
+    {
+        $values = [];
+
+        foreach ($columnMap as $locale => $index) {
+            $value = trim((string) ($row[$index] ?? ''));
+
+            if ($value === '') {
+                continue;
+            }
+
+            $values[$locale === 'flat' ? $primaryLocale : $locale] = $value;
+        }
+
+        return $values;
     }
 
     /**
@@ -328,6 +384,8 @@ class ImportTroves extends Command
                 $errors[] = 'no title in any locale';
             }
 
+            $primaryLocale = array_key_first($titles) ?? '';
+
             $descriptions = [];
             foreach ($columns['description'] as $locale => $index) {
                 $value = trim((string) ($row[$index] ?? ''));
@@ -353,25 +411,43 @@ class ImportTroves extends Command
                 }
             }
 
-            $linkUrl = $fixed('link_url');
-            if ($linkUrl !== '' && ! filter_var($linkUrl, FILTER_VALIDATE_URL)) {
-                $errors[] = "invalid link_url \"{$linkUrl}\"";
-            }
+            $linkUrls = $this->localizedColumnValues($columns['localized']['link_url'] ?? [], $row, $primaryLocale);
+            $linkTitles = $this->localizedColumnValues($columns['localized']['link_title'] ?? [], $row, $primaryLocale);
 
-            $videoUrl = $fixed('video_url');
-            if ($videoUrl !== '') {
-                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $videoUrl)) {
-                    $videoUrl = "https://www.youtube.com/watch?v={$videoUrl}";
-                }
-
-                if (! filter_var($videoUrl, FILTER_VALIDATE_URL)) {
-                    $errors[] = "invalid video_url \"{$videoUrl}\"";
+            foreach ($linkUrls as $locale => $url) {
+                if (! filter_var($url, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid link_url:{$locale} \"{$url}\"";
                 }
             }
 
-            $coverImageUrl = $fixed('cover_image_url') ?: null;
-            if ($coverImageUrl !== null && ! filter_var($coverImageUrl, FILTER_VALIDATE_URL)) {
-                $errors[] = "invalid cover_image_url \"{$coverImageUrl}\"";
+            foreach ($linkTitles as $locale => $title) {
+                if (! isset($linkUrls[$locale])) {
+                    $errors[] = "link_title has no matching link_url for locale \"{$locale}\"";
+                }
+            }
+
+            $videoUrls = $this->localizedColumnValues($columns['localized']['video_url'] ?? [], $row, $primaryLocale);
+            $normalizedVideoUrls = [];
+            foreach ($videoUrls as $locale => $url) {
+                if (preg_match('/^[A-Za-z0-9_-]{11}$/', $url)) {
+                    $url = "https://www.youtube.com/watch?v={$url}";
+                }
+
+                if (! filter_var($url, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid video_url:{$locale} \"{$url}\"";
+
+                    continue;
+                }
+
+                $normalizedVideoUrls[$locale] = $url;
+            }
+            $videoUrls = $normalizedVideoUrls;
+
+            $coverImageUrls = $this->localizedColumnValues($columns['localized']['cover_image_url'] ?? [], $row, $primaryLocale);
+            foreach ($coverImageUrls as $locale => $url) {
+                if (! filter_var($url, FILTER_VALIDATE_URL)) {
+                    $errors[] = "invalid cover_image_url:{$locale} \"{$url}\"";
+                }
             }
 
             if ($errors) {
@@ -380,12 +456,10 @@ class ImportTroves extends Command
                 continue;
             }
 
-            // Duplicate check (only meaningful for valid rows): a trove sourced from the same
-            // link or video — in the DB or earlier in this file — makes re-runs idempotent.
-            $sourceKeys = array_values(array_filter([
-                $linkUrl !== '' ? $linkUrl : null,
-                $videoUrl !== '' ? $this->videoSourceKey($videoUrl) : null,
-            ]));
+            $sourceKeys = array_values(array_merge(
+                array_values($linkUrls),
+                array_map(fn ($url) => $this->videoSourceKey($url), array_values($videoUrls)),
+            ));
             $duplicateKey = collect($sourceKeys)->first(fn ($key) => isset($this->seenSourceKeys[$key]));
             if ($duplicateKey !== null) {
                 $plan['skipped'][] = "Line {$line}: skipped — a trove with source \"{$duplicateKey}\" already exists.";
@@ -416,7 +490,13 @@ class ImportTroves extends Command
                 }
             }
 
-            $primaryLocale = array_key_first($titles);
+            $externalLinks = null;
+            if ($linkUrls) {
+                $externalLinks = [];
+                foreach ($linkUrls as $locale => $url) {
+                    $externalLinks[$locale] = [['link_url' => $url, 'link_title' => $linkTitles[$locale] ?? 'View resource']];
+                }
+            }
 
             $plan['rows'][] = [
                 'line' => $line,
@@ -424,13 +504,10 @@ class ImportTroves extends Command
                 'description' => $descriptions,
                 'trove_type_id' => $troveTypeId,
                 'creation_date' => $creationDate,
-                'primary_locale' => $primaryLocale,
-                'external_links' => $linkUrl !== ''
-                    ? [$primaryLocale => [['link_url' => $linkUrl, 'link_title' => $fixed('link_title') ?: 'View resource']]]
-                    : null,
-                'video_url' => $videoUrl !== '' ? $videoUrl : null,
+                'external_links' => $externalLinks,
+                'video_urls' => $videoUrls,
                 'video_links' => null,
-                'cover_image_url' => $coverImageUrl,
+                'cover_image_urls' => $coverImageUrls,
                 'tags' => $tags,
                 'collections' => array_keys($collections),
             ];
@@ -577,15 +654,12 @@ class ImportTroves extends Command
     private function downloadCoverImages(array $created): void
     {
         foreach ($created as [$trove, $row]) {
-            if (! $row['cover_image_url']) {
-                continue;
-            }
-
-            try {
-                $trove->addMediaFromUrl($row['cover_image_url'])
-                    ->toMediaCollection('cover_image_'.$row['primary_locale']);
-            } catch (Throwable $e) {
-                $this->warn("Line {$row['line']}: cover image download failed ({$e->getMessage()}); trove imported without it.");
+            foreach ($row['cover_image_urls'] as $locale => $url) {
+                try {
+                    $trove->addMediaFromUrl($url)->toMediaCollection("cover_image_{$locale}");
+                } catch (Throwable $exception) {
+                    $this->warn("Line {$row['line']}: cover image download failed for locale \"{$locale}\" ({$exception->getMessage()}); trove imported without it.");
+                }
             }
         }
     }

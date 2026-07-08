@@ -12,8 +12,9 @@ use App\Support\VideoLink\VideoLinkResult;
 /**
  * troves:import — CSV bulk import (see docs/import/README.md).
  *
- * Media downloads are not exercised here (they need a reachable URL); rows in these
- * fixtures simply omit cover_image_url.
+ * Successful media downloads are not exercised here (they need a reachable URL); most
+ * fixtures simply omit cover_image_url. The failure path is exercised against a
+ * fast-refusing local address (127.0.0.1:1) instead of a real download.
  */
 
 /** Write a CSV (header + rows) to a temp file and return its path. */
@@ -164,6 +165,72 @@ it('skips rows whose source url already exists', function () {
         ->toContain('Fresh trove');
 });
 
+it('rejects a column defined both flat and with locale suffixes', function () {
+    $path = importCsv(
+        ['title:en', 'link_url', 'link_url:fr'],
+        ['A trove', 'https://example.org/a', 'https://example.org/a-fr'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->expectsOutputToContain('is defined both as a flat column and with locale suffixes')
+        ->assertExitCode(1);
+
+    expect(Trove::withDrafts()->count())->toBe(0);
+});
+
+it('imports per-locale link_url and link_title columns', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_url:fr', 'link_title:en', 'link_title:fr'],
+        ['Compost basics', 'Les bases du compost', 'https://example.org/en', 'https://example.org/fr', 'Read more', 'En savoir plus'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+    expect($trove->getTranslation('external_links', 'en'))->toBe([['link_url' => 'https://example.org/en', 'link_title' => 'Read more']])
+        ->and($trove->getTranslation('external_links', 'fr'))->toBe([['link_url' => 'https://example.org/fr', 'link_title' => 'En savoir plus']]);
+});
+
+it('defaults link_title to "View resource" per locale when omitted', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_url:fr'],
+        ['A trove', 'Un trove', 'https://example.org/en', 'https://example.org/fr'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+    expect($trove->getTranslation('external_links', 'fr'))->toBe([['link_url' => 'https://example.org/fr', 'link_title' => 'View resource']]);
+});
+
+it('errors when link_title has no matching link_url for that locale', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_title:en', 'link_title:fr'],
+        ['A trove', 'Un trove', 'https://example.org/en', 'Read more', 'En savoir plus'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->expectsOutputToContain('link_title has no matching link_url for locale "fr"')
+        ->assertExitCode(1);
+
+    expect(Trove::withDrafts()->count())->toBe(0);
+});
+
+it('dedupes rows whose link_url matches an already-imported locale-specific link', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_url:fr'],
+        ['First trove', 'Premier trove', 'https://example.org/shared', 'https://example.org/fr-only'],
+        ['Second trove', 'Deuxieme trove', 'https://example.org/other', 'https://example.org/shared'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+});
+
 it('aborts on unknown tag type slugs unless --create-tag-types is passed', function () {
     $path = importCsv(
         ['title:en', 'tag:formats'],
@@ -287,4 +354,96 @@ it('does not resolve video urls during a dry run', function () {
 
     expect($resolver->resolvedUrls)->toBe([])
         ->and(Trove::withDrafts()->count())->toBe(0);
+});
+
+it('resolves video_url per locale', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'video_url:en', 'video_url:fr'],
+        ['A video', 'Une vidéo', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+
+    expect($resolver->resolvedUrls)->toBe([
+        'https://www.youtube.com/watch?v=q76bMs-NwRk',
+        'https://www.ecoagtube.org/content/biofertilizer-formulation-1',
+    ])
+        ->and($trove->getTranslation('video_links', 'en')[0]['url'])->toBe('https://www.youtube.com/watch?v=q76bMs-NwRk')
+        ->and($trove->getTranslation('video_links', 'fr')[0]['provider'])->toBe('ecoagtube');
+});
+
+it('dedupes rows whose video_url matches an already-imported locale-specific video', function () {
+    fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'video_url:en', 'video_url:fr'],
+        ['First', 'Premier', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/x'],
+        ['Second', 'Deuxieme', 'https://www.ecoagtube.org/content/x', 'https://www.youtube.com/watch?v=xNN7iTA57jM'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+});
+
+it('imports combined per-locale link_url and video_url columns', function () {
+    $resolver = fakeVideoResolver();
+
+    $path = importCsv(
+        ['title:en', 'title:fr', 'link_url:en', 'link_url:fr', 'link_title:en', 'link_title:fr', 'video_url:en', 'video_url:fr'],
+        ['A resource', 'Une ressource', 'https://example.org/en', 'https://example.org/fr', 'Read more', 'En savoir plus', 'https://www.youtube.com/watch?v=q76bMs-NwRk', 'https://www.ecoagtube.org/content/biofertilizer-formulation-1'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->assertExitCode(0);
+
+    $trove = Trove::withDrafts()->firstOrFail();
+
+    expect($trove->getTranslation('external_links', 'en'))->toBe([['link_url' => 'https://example.org/en', 'link_title' => 'Read more']])
+        ->and($trove->getTranslation('external_links', 'fr'))->toBe([['link_url' => 'https://example.org/fr', 'link_title' => 'En savoir plus']])
+        ->and($trove->getTranslation('video_links', 'en')[0]['url'])->toBe('https://www.youtube.com/watch?v=q76bMs-NwRk')
+        ->and($trove->getTranslation('video_links', 'fr')[0]['provider'])->toBe('ecoagtube')
+        ->and($resolver->resolvedUrls)->toHaveCount(2);
+});
+
+it('downloads cover images per locale and warns independently on failure', function () {
+    $path = importCsv(
+        ['title:en', 'title:fr', 'cover_image_url:en', 'cover_image_url:fr'],
+        ['A trove', 'Un trove', 'http://127.0.0.1:1/en.jpg', 'http://127.0.0.1:1/fr.jpg'],
+    );
+
+    $this->artisan('troves:import', ['file' => $path, '--uploader' => 'importer@example.com'])
+        ->expectsOutputToContain('cover image download failed for locale "en"')
+        ->expectsOutputToContain('cover image download failed for locale "fr"')
+        ->assertExitCode(0);
+
+    expect(Trove::withDrafts()->count())->toBe(1);
+});
+
+it('imports the multilingual template CSV cleanly as a dry run', function () {
+    TroveType::create(['label' => ['en' => 'Guide', 'fr' => 'Guide']]);
+    TagType::create([
+        'slug' => 'locations',
+        'label' => ['en' => 'Locations'],
+        'description' => ['en' => ''],
+        'freetext' => false,
+    ]);
+    TagType::create([
+        'slug' => 'authors',
+        'label' => ['en' => 'Authors'],
+        'description' => ['en' => ''],
+        'freetext' => false,
+    ]);
+
+    $this->artisan('troves:import', [
+        'file' => base_path('docs/import/trove-import-template-multilingual.csv'),
+        '--uploader' => 'importer@example.com',
+        '--dry-run' => true,
+    ])->assertExitCode(0);
 });
