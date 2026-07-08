@@ -166,7 +166,6 @@ it('editing a live trove video_links lands changes on the shadow draft not the c
 
     Livewire::test(EditTrove::class, ['record' => $canonical->getKey()])
         ->set('data.video_links', ['en' => [['url' => 'https://youtu.be/q76bMs-NwRk']]])
-        ->set('data.source', 1)
         ->call('save')
         ->assertHasNoFormErrors();
 
