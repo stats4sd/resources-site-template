@@ -2,7 +2,15 @@
 
 namespace App\Providers;
 
+use App\Contracts\ResolvesVideoLinks;
 use App\Models\SiteSetting;
+use App\Services\VideoLink\EcoAgTubeAdapter;
+use App\Services\VideoLinkResolver;
+use Embed\Embed;
+use Embed\Http\Crawler;
+use GuzzleHttp\Client as GuzzleClient;
+use Http\Factory\Guzzle\RequestFactory;
+use Http\Factory\Guzzle\UriFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Telescope\TelescopeServiceProvider as PackageTelescopeServiceProvider;
@@ -21,6 +29,17 @@ class AppServiceProvider extends ServiceProvider
                 $this->app->register(TelescopeServiceProvider::class);
             }
         }
+
+        $this->app->bind(Embed::class, function () {
+            $httpClient = new GuzzleClient([
+                'timeout' => 5,
+                'headers' => ['User-Agent' => EcoAgTubeAdapter::browserUserAgent()],
+            ]);
+
+            return new Embed(new Crawler($httpClient, new RequestFactory, new UriFactory));
+        });
+
+        $this->app->bind(ResolvesVideoLinks::class, VideoLinkResolver::class);
     }
 
     /**
@@ -38,7 +57,7 @@ class AppServiceProvider extends ServiceProvider
         try {
             $settings = SiteSetting::instance();
             $locales = $settings->localesAsConfig();
-            if (!empty($locales)) {
+            if (! empty($locales)) {
                 config(['branding.locales' => $locales]);
                 config(['app.locales' => $locales]);
 
