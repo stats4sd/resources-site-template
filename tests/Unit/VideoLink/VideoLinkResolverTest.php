@@ -2,6 +2,13 @@
 
 use App\Contracts\ResolvesVideoLinks;
 use App\Services\VideoLinkResolver;
+use Embed\Embed;
+use Embed\Http\Crawler;
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use Http\Factory\Guzzle\RequestFactory;
+use Http\Factory\Guzzle\UriFactory;
 use Illuminate\Support\Facades\Http;
 
 it('is bound to the contract in the container', function () {
@@ -10,6 +17,11 @@ it('is bound to the contract in the container', function () {
 
 it('rejects unresolvable or unsafe urls without any http call', function (string $badUrl) {
     Http::fake();
+    app()->instance(Embed::class, new Embed(new Crawler(
+        new GuzzleClient(['handler' => HandlerStack::create(new MockHandler([]))]),
+        new RequestFactory,
+        new UriFactory,
+    )));
 
     $result = app(ResolvesVideoLinks::class)->resolve($badUrl);
 
@@ -37,7 +49,8 @@ it('routes ecoagtube urls to the ecoagtube adapter', function () {
 
     $result = app(ResolvesVideoLinks::class)->resolve('https://www.ecoagtube.org/content/some-video');
 
-    expect($result->provider)->toBe('ecoagtube');
+    expect($result->provider)->toBe('ecoagtube')
+        ->and($result->embeddable)->toBeFalse();
 });
 
 it('returns a plain-link result when an adapter throws unexpectedly', function () {
