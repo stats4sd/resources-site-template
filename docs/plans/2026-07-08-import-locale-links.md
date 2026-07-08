@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Not Started
+**Status:** Completed — see [docs/change-logs/import-locale-links.md](../change-logs/import-locale-links.md)
 
 **Spec:** `docs/superpowers/specs/2026-07-08-import-locale-links-design.md`
 
