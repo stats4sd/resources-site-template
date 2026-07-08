@@ -260,8 +260,10 @@ class ImportTroves extends Command
         foreach ($this->localizableColumns as $name) {
             $localeSuffixes = array_values(array_diff(array_keys($columns['localized'][$name] ?? []), ['flat']));
 
-            if (isset($columns['localized'][$name]['flat']) && $localeSuffixes) {
-                $errors[] = "Column \"{$name}\" is defined both as a flat column and with locale suffixes ({$name}:{$localeSuffixes[0]}); use one style, not both.";
+            if (isset($columns['localized'][$name]['flat'])) {
+                if ($localeSuffixes) {
+                    $errors[] = "Column \"{$name}\" is defined both as a flat column and with locale suffixes ({$name}:{$localeSuffixes[0]}); use one style, not both.";
+                }
             }
         }
 
