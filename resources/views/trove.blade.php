@@ -121,12 +121,12 @@
         }
         $mediaFiles = $resource->getContentMedia();
 
-        $youtubeLinks = null;
-        if ($resource->getTranslation('youtube_links', app()->getLocale())[0]['youtube_id'] ?? null) {
-            $youtubeLinks = $resource->getTranslation('youtube_links', app()->getLocale());
-            if (isset($youtubeLinks['youtube_id'])) {
-                $youtubeLinks = [$youtubeLinks];
-            }
+        $youtubeLinks = $resource->getTranslation('youtube_links', app()->getLocale());
+        if (isset($youtubeLinks['youtube_id'])) {
+            $youtubeLinks = [$youtubeLinks];
+        }
+        if (! ($youtubeLinks[0]['youtube_id'] ?? null)) {
+            $youtubeLinks = null;
         }
     @endphp
 
@@ -244,7 +244,6 @@
     @endif
 
 </div>
-@endsection
 
 <script>
     function scrollToSection(sectionId) {
@@ -268,3 +267,4 @@
         }
     }
 </script>
+@endsection

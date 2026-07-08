@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Models\Tag;
 use App\Enums\ReviewState;
+use App\Support\HtmlSanitizer;
 use Filament\Forms;
 use Filament\Tables;
 use App\Models\Trove;
@@ -55,13 +56,6 @@ class TroveResource extends Resource
         return parent::getEloquentQuery()->workingVersions();
     }
 
-    public static function getRecordTitleAttribute(): ?string
-    {
-        $locale = app()->getLocale();
-
-        return "title";
-    }
-
     public static function form(Schema $schema): Schema
     {
 
@@ -97,7 +91,8 @@ class TroveResource extends Resource
                                     Forms\Components\RichEditor::make('description')
                                     ->disableToolbarButtons([
                                         'attachFiles'
-                                    ]),
+                                    ])
+                                    ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
                                 )
                                 ->required(),
 
@@ -380,7 +375,7 @@ class TroveResource extends Resource
             TextColumn::make('creation_date')
                 ->date()
                 ->sortable(),
-            TextColumn::make('user.name')
+            TextColumn::make('uploader.name')
                 ->label('Uploader')
                 ->sortable(),
             TextColumn::make('download_count')
@@ -411,7 +406,7 @@ class TroveResource extends Resource
                 ->relationship('troveType', 'label')
                 ->getOptionLabelFromRecordUsing(fn($record, $livewire) => $record->getTranslation('label', 'en')),
             SelectFilter::make('uploader')
-                ->relationship('user', 'name'),
+                ->relationship('uploader', 'name'),
             ...$tagFilters,
         ];
     }

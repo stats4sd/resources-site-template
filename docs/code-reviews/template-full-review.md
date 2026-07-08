@@ -1,0 +1,194 @@
+# Template Review — Full Application Review Against Template Purpose
+
+**Date**: 2026-07-07
+**Branch**: `dev`
+**Reviewer**: Claude (automated multi-angle review)
+**Scope**: Whole-application review against the template's intended purpose (cloneable white-label resource library). Four parallel review passes: Trove draft/publish lifecycle; admin panel/auth/user management; public frontend/search; template-readiness/config/architecture. All high-severity findings independently re-verified against source before inclusion.
+
+---
+
+## Verdict summary
+
+The core of the template is strong: the Trove shadow-draft lifecycle is well-designed, well-documented and well-tested (the requested accessor/scope parity check passed — `publicationState()`/`reviewState()` and their DB-mirror scopes are in parity, locked by `tests/Feature/Models/TroveStateParityTest.php`), and the admin panel is coherent. The weak surfaces are: (a) the **public frontend**, which has the most serious bugs (stored XSS, private-collection exposure, zero-hit search returning the whole library) and the least test coverage — a direct consequence of MySQL-only SQL making it untestable on the SQLite harness; (b) **template hygiene** — the repo still ships a substantial amount of Stats4SD-specific and dev-only cruft (broken commands, a GitHub workflow that fails in every fork, hardcoded Plausible analytics, stale translation files, 12 unused images); and (c) the **customisation architecture**, which currently forces forks to edit tracked files, guaranteeing merge conflicts on upstream pulls — fixable with two well-scoped moves (§4).
+
+Recommended priority order: fix the five security items in §3.A, fix the zero-hit search bug, delete the cruft (§2 dead-code list + broken commands), then do the two architecture moves in §4.
+
+---
+
+## 1. Functionality gaps
+
+What a resource-library template should have and doesn't, grouped by how much they matter for the template's purpose.
+
+### 1.1 First-run / onboarding (blocking for a template)
+
+- **No first-admin bootstrap in production.** The seeded admin (`test@example.com`) only exists in `local` ([DatabaseSeeder.php:29](database/seeders/DatabaseSeeder.php#L29)); `user:set-role` requires an existing user ([SetUserRole.php:34-39](app/Console/Commands/SetUserRole.php#L34-L39)); `open_registration` defaults off. A fresh production deploy has zero users and no way in except tinker. A `site:install` (or `user:create`) command — create admin, set org name, optionally seed examples — is the single most important missing piece of first-run experience.
+- **No LICENSE file** despite `composer.json` declaring MIT. Blocker for third-party reuse.
+- **README covers local dev only.** Missing: production deployment (queue worker, `schedule:run` cron for the daily `PruneSupersededMedia`), `scout:sync-index-settings` on first deploy, mail configuration (invites/set-password/reset all silently depend on it), how to create the first admin, the full rebrand workflow (README points at `config/branding.php` but not `app.css`, fonts, footer or images).
+- **No CI.** The Pest suite runs on SQLite and would be cheap to wire into a GitHub Actions example workflow. Meanwhile the one workflow that *does* ship ([.github/workflows/main.yml](/.github/workflows/main.yml)) auto-assigns issues to a Stats4SD-internal project board and will fail on every fork — it must be deleted.
+- **`.env.example` is incomplete/wrong**: `AZURE_SECRET` doesn't match the `AZURE_CLIENT_SECRET` the config reads ([services.php:26](config/services.php#L26)); `SESSION_DRIVER` appears twice; `TELESCOPE_ENABLED` is undocumented while defaulting to **true**; `SCOUT_DRIVER`'s config default is `'algolia'` ([scout.php:19](config/scout.php#L19)) so deleting the env line yields Algolia errors rather than a safe null; ~15 `GOOGLE_CLOUD_*` vars for the `gcs` disk are undocumented.
+
+### 1.2 Content management
+
+- **Collections have no draft/publish lifecycle at all** — just a `public` boolean, which the public route doesn't even enforce (§3.A). Editing a live collection is instantly public. At minimum, enforce `public` everywhere now; a fuller lifecycle can come later if needed.
+- **`download_count` has no writer** — nothing increments it anywhere, so the admin "# Downloads" column ([TroveResource.php:386](app/Filament/Resources/TroveResource.php#L386)) is permanently 0. Latent trap: `download_count` is not in `TrovePublisher::NON_CONTENT`, so once incrementing is added, publishing a pending draft will overwrite the live count with the stale fork-time value.
+- **No restore path for soft-deleted troves** — no trashed filter/restore action in the admin, despite canonicals being soft-deleted by design.
+- **No slug management** — slugs freeze once published (correct default), but there is no admin-facing way to change a slug even though the full `previous_slugs` redirect infrastructure exists and is otherwise dead in practice.
+- No scheduled publishing (publish-at date), no revision history / audit trail of who published what when.
+
+### 1.3 Public frontend / SEO
+
+- **No `<title>` tag, meta description, OG/Twitter tags, canonical URL or favicon anywhere** ([layouts/app.blade.php](resources/views/layouts/app.blade.php)). For a shareable resources library — with share buttons on every page — this is the biggest SEO/UX gap.
+- **Search/browse state is not in the URL** — no `#[Url]` on query/filters/page in `BrowseAll`; filtered views can't be bookmarked, shared or indexed; back button loses state.
+- No sitemap.xml, no RSS feed, no custom 404 page (`resources/views/errors/` absent), no `hreflang`/locale-prefixed routes (locale lives in session so crawlers only ever see one language).
+- **Browse UX**: no sort options, no TroveType filter (only tag-type filters), no resource-vs-collection toggle, no breadcrumbs, cards force `target="_blank"` for same-site links, search only fires on Enter, and results beyond the 500-hit Scout cap are silently truncated.
+- **Accessibility basics missing**: card images have no `alt`; clear-search is a bare `<svg wire:click>` (not focusable, no keyboard access); language dropdown `<a>`s have no `href`/keyboard handling; pagination lacks `aria-current`; `<button>` nested inside link cards.
+- **Analytics hardcoded to Plausible** ([analytics.blade.php:2](resources/views/layouts/analytics.blade.php#L2), included whenever `APP_ENV != local`) — every fork ships a third-party beacon reporting to a Plausible account they don't have. Should be env-driven and default-off.
+
+### 1.4 Users & auth
+
+- **No email verification** — `MustVerifyEmail` commented out, Filament `->emailVerification()` not enabled. With `open_registration` on, anyone can register any email address unverified and get panel (viewer) access immediately. The most significant auth gap given open registration is a supported mode.
+- **No 2FA** — Filament 5 ships `->multiFactorAuthentication()`; not enabled. Admin accounts control users and site content.
+- **No audit logging** for role changes, user deletion, invite creation/revocation, or site-setting flips. `spatie/laravel-activitylog` would fit the existing stack.
+- **No notification when an admin changes a user's password** via the edit form.
+- **No pruning of expired/used invite and password-setup tokens** (superseded media has a sweep command; tokens have nothing).
+
+### 1.5 Ops
+
+- **No search-index reconciliation job** — if Meilisearch is unreachable at the moment of publish/unpublish, the index silently drifts from the DB and nothing ever repairs it (compounded by §3.C `after_commit`).
+
+---
+
+## 2. Code gotchas — non-standard practices, over-engineering, refactor opportunities
+
+### 2.1 Non-standard Laravel (things that will trip up a new maintainer)
+
+- **Laravel 13 on the pre-L11 skeleton**: old-style `bootstrap/app.php` + `App\Http\Kernel`/`App\Console\Kernel` + `RouteServiceProvider`. Supported but every current Laravel doc points somewhere else (middleware in `bootstrap/app.php`, schedules in `routes/console.php` — here the prune schedule is in [app/Console/Kernel.php:16](app/Console/Kernel.php#L16)).
+- **`Model::unguard()` globally** ([AppServiceProvider.php:25](app/Providers/AppServiceProvider.php#L25)). No exploit exists today — all create paths feed validated Filament state — but any future `Model::create($request->all())` is instantly dangerous, and it leaves dead weight (`User::$guarded`, `SiteSetting::$fillable`) implying protection that isn't there. Prefer per-model `$guarded = []`, or at minimum a loud comment.
+- **DB read *and write* in provider boot** ([AppServiceProvider.php:32-44](app/Providers/AppServiceProvider.php#L32-L44)): `SiteSetting::instance()` is `firstOrCreate`, so booting the app can INSERT — including during `migrate` and in queue workers — and every request pays an uncached SELECT. The catch-all `catch (\Exception)` silently degrades to unset config on any DB hiccup, which currently 500s the public site (§3.D). Wrap in `Cache::rememberForever` (bust on save) before more settings are added to this path.
+- **`PublishedScope` keyed on Filament request context** ([PublishedScope.php:26](app/Models/Scopes/PublishedScope.php#L26)): the same Eloquent query returns different rows depending on `Filament::getCurrentPanel()`. It forces manual panel-pinning ([AllTrovesTable.php:60](app/Livewire/AllTrovesTable.php#L60)), test-harness workarounds (`usePublicContext()`), and has already produced two real bugs (§3.B AllTrovesTable, PruneSupersededMedia). A maintainer writing a queue job or command gets published-only results without knowing why. Worth a deliberate rethink (explicit `Trove::published()`/`Trove::working()` entry points rather than an ambient context-sensitive global scope) even though the current behaviour is documented.
+- **MySQL-only SQL in app code**: `FIELD()` and `ISNULL`/`JSON_EXTRACT` ordering in [BrowseAll.php:81,107,184-187](app/Livewire/BrowseAll.php#L81), `whereJsonContains` on `previous_slugs`, and errno-1062 handling in [EditTrove.php:204-208](app/Filament/Resources/TroveResource/Pages/EditTrove.php#L204-L208). The direct cost: **the main public component's search/render path is untestable on the SQLite harness** (acknowledged in [BrowseAllTest.php:6-10](tests/Feature/Http/BrowseAllTest.php#L6-L10)) — which is exactly where the worst frontend bugs live. Replacing `FIELD()` with a PHP-side `sortBy(fn ($r) => array_search($r->id, $ids))` is the single highest-value refactor for testability.
+- **`tio/laravel` is load-bearing while documented as optional.** The `t()` helper is used in every public view and the `set.locale` alias used by [routes/web.php:20](routes/web.php#L20) is registered by the tio ServiceProvider, not the app — removing the package (as `branding.php` implies you can) breaks every public route. Also the middleware runs twice: once in the `web` group ([Kernel.php:39](app/Http/Kernel.php#L39)) and again via the route-group alias. Register an app-owned alias and drop one of the two.
+- **Route closures with inline auth** in [routes/web.php](routes/web.php) instead of controllers + `auth` middleware — directly produced the blank-200 preview bug (§3.C).
+- **Eloquent + enums inside a migration** ([2026_07_06_154000_assign_admin_role_to_existing_users.php](database/migrations/2026_07_06_154000_assign_admin_role_to_existing_users.php)) — deliberate and defensively written, but brittle if the classes change before an old environment migrates.
+- **Fragile Filament seams** (works today, could break on a minor upgrade): `EditTrove::save()` swaps `$this->record` and the form model mid-save ([EditTrove.php:199-201](app/Filament/Resources/TroveResource/Pages/EditTrove.php#L199-L201)); `SetPassword` extends Filament's `ResetPassword` page and swaps the broker for a bespoke token.
+- **Queries in Blade**: uncached `SiteContent::get()` calls in views (~5+ queries/page across [home.blade.php](resources/views/home.blade.php), [browse-all.blade.php](resources/views/livewire/browse-all.blade.php), [footer.blade.php](resources/views/components/footer.blade.php)); `@php` blocks running queries in [trove.blade.php:10-12](resources/views/trove.blade.php#L10-L12).
+- **Dynamic Tailwind classes** `text-{{ $color }}` / `bg-{{ $color }}` ([resource-result-card.blade.php:30,55](resources/views/components/resource-result-card.blade.php#L30)) only compile because the literal classes happen to exist elsewhere; any new colour silently produces unstyled output.
+
+### 2.2 Over-engineering
+
+- **`existingDraftMediaMap()` + `remapMediaState()`** ([TrovePublisher.php:95-119](app/Services/TrovePublisher.php#L95-L119), [EditTrove.php:218-263](app/Filament/Resources/TroveResource/Pages/EditTrove.php#L218-L263)): the by-filename-else-positional media-pairing heuristic exists solely to support the stale-editor idempotent save path — the very path the code's own comments say should bounce (§3.B clobber bug). Bounce consistently (draft exists + form was filled from the canonical → Halt) and this whole apparatus can be deleted. This is the recommended fix for both the bug and the complexity.
+- **`BrowseAll` holds the entire catalogue in Livewire state** ([BrowseAll.php:20-26](app/Livewire/BrowseAll.php#L20-L26)) and re-implements pagination by `skip/take` over in-memory collections with `@for(1..pageCount)` page buttons — Laravel's paginator, but worse (huge snapshots shipped to the browser, models rehydrated query-by-query on every interaction, N+1 on media/troveType/tags — no eager loading of `media` anywhere in the component). The idiomatic shape: server-side pagination over the merged ID list, only the current page in state, `#[Url]` for query/filters/page.
+- **Zero-interactivity Livewire components**: `CollectionTroves`, `TroveCollections`, `TroveRelatedTroves` have only `mount()` + `render()` — each costs a component boot and hydration round-trip for what is a Blade component.
+- **SearchBar↔BrowseAll event ping-pong** (`queryUpdated` both ways, plus a dead `private $previousQuery` guard that Livewire never persists) — a `wire:model` binding removes the whole dance.
+- **Invite / PasswordSetup are ~90% identical** (token generation, expiry, `isUsable()`, `refreshToken()`, accepted/used marking) — extract a `HasExpiringToken` trait; drift is already visible (Invite lacks `isExpired()`).
+
+### 2.3 Dead code and cruft (all CONFIRMED unreferenced; delete)
+
+- **Dead Breeze scaffolding with a live hazard**: `routes/auth.php` is loaded nowhere (`RouteServiceProvider` registers only `web.php`/`api.php`), orphaning all 9 controllers in `app/Http/Controllers/Auth/`, both Form Requests, and referencing Blade views that don't exist. Hazard: `RegisteredUserController::store()` bypasses the `open_registration` gate and role assignment — if anyone ever wires `routes/auth.php` back up it becomes an unauthenticated registration bypass. Delete the lot.
+- **`app:rdbc`** ([ResetDbAndConvert.php:35,38](app/Console/Commands/ResetDbAndConvert.php#L35)) calls two commands that only existed in the stats4sd origin — running it wipes the DB then throws `CommandNotFoundException`. Delete it, plus the commented `mysql_old_troves` connection and its `DB_*_OLD` env reads in [config/database.php](config/database.php).
+- **Socialment/Azure is half-removed**: the plugin is no longer registered in `AdminPanelProvider` (commit 8c0f644) but the packages, `config/socialment.php`, the providers-list Blade view, the `connected_accounts` migration, the `.env.example` AZURE block and the CLAUDE.md description all remain. Either re-enable behind an env flag or strip fully. (The empty `app/Filament/Pages/Login.php` subclass is a leftover of the same removal.)
+- Unreachable/unused: `ViewTrove` page (not in `TroveResource::getPages()`); the `file_name_{locale}` loop in [HasTroveFormActions.php:125-131](app/Filament/Resources/TroveResource/Concerns/HasTroveFormActions.php#L125-L131); `TroveResource::getRecordTitleAttribute()` returning the literal `"title"`; duplicate `Trove::user()`/`Trove::uploader()` relations; the empty `components/pagination.blade.php`; the `Trove::coverImage` accessor (and its unreachable `?? asset(...)` fallback — `getFirstMediaUrl()` returns `''`, never null); `ImportTrovesToSearch` (duplicates `scout:import`); the `show_language_filter` hydration (§3.D); `config/app.php` `front_end_url`.
+- Stats4SD leftovers: `draft.yaml` (stale Blueprint file describing the pre-rewrite schema, plus `laravel-shift/blueprint` in require-dev); 12 of 18 files in `public/images/` unreferenced; `lang/gettext/{es,fr}` are exports of the "Stats4SD Resources" Translation.io project; `composer.json` name/description still `laravel/laravel`; the issue-assignment GitHub workflow (§1.1).
+- **Dependency stack shipped to all forks**: `spatie/laravel-ray` (paid tool) in *prod* require; Sentry, Telescope (prod dependency, `enabled` defaults true, and the gate bug in §3.D makes it unopenable in prod anyway — forks pay its cost with no access), Translation.io, Socialment/Azure, Google Cloud Storage. Each should be dev-only, opt-in, or removed.
+- Minor: [config/media-library.php:15](config/media-library.php#L15) sets `max_file_size` to 2GB while the comment says 10MB; the layout loads four Google font families while `--brand-font` uses one (§4).
+
+---
+
+## 3. Actual bugs
+
+All CONFIRMED unless marked PLAUSIBLE. The most severe items in §3.A/§3.C were re-verified directly against source during synthesis, not just taken from the individual review passes.
+
+### 3.A Security & access control
+
+1. **Stored XSS via trove title.** [resource-result-card.blade.php:36](resources/views/components/resource-result-card.blade.php#L36) renders `{!! $item['title'] !!}` unescaped on browse, collection and related-resources pages. Any editor-role user saving a title containing `<script>` executes it for every visitor. The same title is correctly escaped on the trove page itself — the card is the outlier. Related: `{!! t($description) !!}` on trove/collection pages and `{!! SiteContent::get(...) !!}` across home/browse/footer are unescaped admin-entered rich text with no sanitiser on either the write or read path — acceptable only if you trust every editor forever; a sanitiser (e.g. `mews/purifier`) on output would close it.
+2. **Private collections are fully public.** [routes/web.php:59-62](routes/web.php#L59-L62) fetches `Collection::where('id', $id)` with no `public` check and `Collection` has no global scope — anyone can enumerate `/collections/{id}`. Compounded by: trove pages list *all* collections a trove belongs to, private included ([TroveCollections.php:16](app/Livewire/TroveCollections.php#L16) — the `public` filter in the route only gates whether the *section* shows); and `Collection` has no `shouldBeSearchable()`, so private collections are indexed into Meilisearch (filtered out DB-side, but their content sits in the index and they consume hit slots).
+3. **Bulk user delete bypasses the self-delete and last-admin guards.** `UserPolicy` has no `deleteAny()`; with Filament's default non-strict authorization, a missing policy method **allows** the action, and `DeleteBulkAction` ([UserResource.php:131](app/Filament/Resources/UserResource.php#L131)) never runs per-record `delete()` checks. An admin can select all users — including themselves and the last admin — and delete everyone, leaving the site recoverable only via CLI. Fix: add `deleteAny(): false` (or gate + `->authorizeIndividualRecords()`), or drop the bulk action.
+4. **Invites are not re-checked at submit time.** [Register.php:39-51](app/Filament/Pages/Auth/Register.php#L39-L51) validates in `mount()` only; `handleRegistration()` re-checks nothing. An invite that expires (or an `open_registration` toggle flipped off) between page load and submit still registers — Livewire snapshots don't expire with the invite. `SetPassword` does this correctly ("Re-check between page load and submit"), making the asymmetry easy to fix by copying the pattern. Also: two tabs with the same invite → second submit is a raw `QueryException` 500 on the email unique constraint rather than a friendly error.
+5. **No password strength rule on admin-set passwords.** [UserResource.php:75-87](app/Filament/Resources/UserResource.php#L75-L87) has only `same()` + `maxLength(255)` — an admin can set a user's password to `"a"`. Both self-service flows apply `Password::default()`; this one should too.
+6. PLAUSIBLE (hardening) — **Invite/set-password tokens stored in plaintext** and matched by equality. 64-char random makes guessing infeasible, but a leaked backup or read-only SQLi yields live admin-invite registration links; Laravel's own password broker hashes tokens at rest for this reason. Related: **email case is never normalised** at the invite/registration boundaries — fine on MySQL's collation, splits users on a case-sensitive store.
+7. **"Resend" silently revives an accepted invite** — the action has no status guard and `refreshToken()` clears `accepted_at`, flipping a used invite back to Pending and falsifying the audit trail (not exploitable — re-registration is blocked by the email-exists check — but Resend should be hidden for accepted invites).
+
+### 3.B Draft/publish lifecycle & data integrity
+
+8. **`unpublish()` defeats the delete-after-commit media safety.** [TrovePublisher.php:237-248](app/Services/TrovePublisher.php#L237-L248) wraps `publish($draft)` in an outer transaction; `publish()`'s inner transaction becomes a savepoint, so `purgeSupersededMedia()` (line 195) **deletes files from disk while the outer transaction is still open** — violating the invariant its own docblock states. If `$canonical->save()` then throws, the rollback resurrects the stashed media rows pointing at deleted files. Permanent media loss with inconsistent DB state.
+9. **Draft media files are deleted from disk inside the publish transaction.** `publish()` → `deleteDraftRow()` → `forceDelete()` ([TrovePublisher.php:187,380](app/Services/TrovePublisher.php#L187)) — Spatie deletes the draft's files synchronously in the model event, inside the open transaction. A rollback in the remaining window restores the draft's DB rows but its files are gone (and the copies made onto the canonical roll back too). The existing rollback test protects only the *canonical's* files.
+10. **Stale-editor saves silently clobber another editor's draft.** The "another editor got there first" bounce ([EditTrove.php:177-208](app/Filament/Resources/TroveResource/Pages/EditTrove.php#L177-L208)) only fires on the millisecond-level MySQL-1062 insert race. The common race — editor B's page was loaded before editor A forked a draft; B saves later — takes `draftFor()`'s idempotent path and writes B's entire stale form state over A's draft with no warning. The comment above the guard describes exactly the behaviour the code fails to deliver. (Fixing this by bouncing consistently also deletes the media-remap machinery — see §2.2.)
+11. **Unpublish → edit title → republish loses the old public slug.** An unpublished canonical has `has_published_version === false`, so [Trove::generateSlug()](app/Models/Trove.php#L560-L563) regenerates the slug on title change, and `publish()`'s in-place branch ([TrovePublisher.php:136-147](app/Services/TrovePublisher.php#L136-L147)) has no `previous_slugs` handling — externally shared links 404 with no redirect ever recorded.
+12. **Count-based slug de-duplication can generate colliding slugs, with no DB unique index as backstop.** Troves "Foo 1" (slug `foo-1`) and "Foo" (slug `foo`) exist; creating another "Foo" counts one `foo` and emits `foo-1` — a silent duplicate ([Trove.php:571-583](app/Models/Trove.php#L571-L583); no unique index in the [troves migration](database/migrations/2023_11_24_132900_create_troves_table.php)). `findBySlugOrRedirect()` then resolves whichever row sorts first and the other trove becomes publicly unreachable.
+13. **Admin attach-troves table shows both rows of a pending-changes trove, and attaching the canonical is undone by the next publish.** [AllTrovesTable.php:85](app/Livewire/AllTrovesTable.php#L85) uses `Trove::query()` with the panel pinned (scope off), listing canonical + draft as identical rows. If an admin attaches the *canonical* to a collection while a draft is pending, `copyRelations()` syncs the canonical's collections from the draft's stale pivot set on publish — silently detaching it. Should be `Trove::query()->workingVersions()`. (`CollectionResource`'s `troves_count` double-counts for the same reason.)
+14. **`PruneSupersededMedia` never prunes unpublished canonicals.** Console context applies `PublishedScope`, so the `whereIn('model_id', Trove::withTrashed()->select('id'))` subquery ([PruneSupersededMedia.php:34](app/Console/Commands/PruneSupersededMedia.php#L34)) selects published troves only — leftover `__superseded` media on a later-unpublished canonical is excluded forever. Needs `withDrafts()`/`withoutGlobalScope`.
+15. **Scout `after_commit => false`** ([scout.php:58](config/scout.php#L58)): `publish()` saves inside a transaction, so Scout pushes to Meilisearch mid-transaction — Meilisearch down makes publish/unpublish **throw** (with the default sync queue), and a rollback after a successful push leaves a phantom document in the index. Set `after_commit => true` (and prefer `SCOUT_QUEUE=true` in production).
+
+### 3.C Search & public frontend
+
+16. **A search with zero hits returns the ENTIRE library.** [BrowseAll.php:76-83](app/Livewire/BrowseAll.php#L76-L83) (and the identical collection block at 101-108): when Meilisearch returns no hits, `if ($ids)` skips the `whereIn`, and the unfiltered query returns every published trove and public collection as if everything matched. Same failure with `SCOUT_DRIVER=null` (every query "matches" everything) and a stale/empty index.
+17. **Meilisearch outage 500s every search.** `Trove::search(...)->raw()` has no try/catch — the `?? []` guards a missing `hits` key, not a connection exception. Every Enter-press becomes a Livewire 500 while Meilisearch is down.
+18. **Language switching doesn't work for admin-added locales.** `config/translation.php` computes `target_locales` from `config('branding.locales')` **at config-load time** — before `AppServiceProvider::boot()` hydrates that key from the DB, and `branding.php` ships no static `locales` key — so `target_locales` is permanently `[]` and the tio middleware ignores every `?locale=` link the UI renders. Admin adds Français in Site Options; the header dropdown and per-resource language pills appear and silently do nothing.
+19. **The "Show language filter" admin toggle does nothing.** `branding.features.show_language_filter` is written at boot ([AppServiceProvider.php:40](app/Providers/AppServiceProvider.php#L40)) and read nowhere — filter visibility is `count(locales) > 1` only ([browse-all.blade.php:61](resources/views/livewire/browse-all.blade.php#L61)).
+20. **Missing locale fallback can 500 every public page.** [header.blade.php:33,41](resources/views/header.blade.php#L33) and [browse-all.blade.php:61,71](resources/views/livewire/browse-all.blade.php#L61) call `config('branding.locales')` with no default — the key only exists after boot hydration succeeds. If `SiteSetting::instance()` throws (DB hiccup, migrations not run), the boot catch swallows it and `count(null)` TypeErrors in the header → sitewide 500. One-line fix: ship the static `['en' => 'English']` default in `branding.php` (which also fixes 18's illusion of dynamism).
+21. **Hardcoded `['en','es','fr']` in `Trove::getCoverImageUrl()`** ([Trove.php:523](app/Models/Trove.php#L523)) — used by the trove hero image. A site with locales `en`+`pt` and a `pt`-only cover shows the default placeholder. Every sibling accessor derives locales from config; this one predates the generalisation.
+22. **Guest preview returns a blank 200.** [routes/web.php:33-35](routes/web.php#L33-L35): `if (!auth()->check()) { return; }` yields an empty 200 (cacheable, indexable, no way in) instead of a login redirect/403 — and [PreviewTest.php:7](tests/Feature/Http/PreviewTest.php#L7) locks the wrong behaviour in. Use `->middleware('auth')`.
+23. **Single-item associative `youtube_links` never renders.** [trove.blade.php:125](resources/views/trove.blade.php#L125) probes `[0]['youtube_id']` before the associative-shape handling at 127-129 can run, so the embed section is skipped for exactly the shape those lines anticipate — while `getDownloadableLinks()` handles it correctly, so the video appears in the ZIP manifest but not on the page.
+24. **Trove/collection pages render in quirks mode.** `<script>` blocks placed after `@endsection` ([trove.blade.php:249-270](resources/views/trove.blade.php#L249-L270), [collection.blade.php:94-115](resources/views/collection.blade.php#L94-L115)) are echoed before `<!DOCTYPE html>`, which makes browsers drop the doctype. ([home.blade.php:43](resources/views/home.blade.php#L43) also has a stray unmatched `</div>`.)
+25. **Pagination defects**: unquoted `bg-gray-50` in Alpine `:class` expressions ([browse-all.blade.php:141,159](resources/views/livewire/browse-all.blade.php#L141)) → ReferenceError on first/last page, disabled styling never applied; `loadPage()` doesn't clamp `$page`, so page 0 computes `skip(-100)` and renders wrong items; the results `@foreach` has no `wire:key` (DOM mis-patching risk on reorder); and the "No resources have been added yet" empty state shows even when zero results are due to the user's own filters ([browse-all.blade.php:111](resources/views/livewire/browse-all.blade.php#L111)).
+26. PLAUSIBLE — **`/download-all-zip/{slug}`** ([routes/web.php:64-67](routes/web.php#L64-L67)) has no `previous_slugs` fallback (old-slug links 404) and resolves under `PublishedScope`, so the preview page's download button serves the *canonical's* old files for a pending-changes draft and 404s for a never-published draft.
+27. **`BrowseAll::mount()` sets an undeclared `$this->locale`** ([BrowseAll.php:46](app/Livewire/BrowseAll.php#L46)) — PHP 8.3 dynamic-property deprecation on every mount. The `scout_search_limit` config key read in `UsesCustomSearchOptions` doesn't exist in `config/scout.php`, so the "configurable" 500-hit cap is fixed; `maxTotalHits` is configured for Trove only, not Collection.
+
+### 3.D Config, boot & ops
+
+28. **`OPTIMISE TABLE` is not valid MySQL.** [PurgeTelescopeEntries.php:34-36](app/Console/Commands/PurgeTelescopeEntries.php#L34-L36) — must be `OPTIMIZE`. The weekly scheduled task has thrown a syntax error (after pruning) since the command was written.
+29. **Telescope gate is dead code.** [TelescopeServiceProvider.php:50](app/Providers/TelescopeServiceProvider.php#L50): `app()->isLocal() ?? $user->can(...)` — `isLocal()` returns bool, never null, so production always gets `false` (intended `?:`). Fails safe, but combined with `TELESCOPE_ENABLED` defaulting true, forks pay Telescope's recording overhead for a UI nobody can open; and the `view telescope` permission is never seeded anyway.
+30. **Seed-order trap**: [SiteContentSeeder.php:15-38](database/seeders/Prep/SiteContentSeeder.php#L15-L38) interpolates `config('branding.org_name')` into seeded content with `firstOrCreate` — running `migrate --seed` before setting `BRAND_ORG_NAME` permanently bakes "Your Organisation" into the DB; changing the env later does nothing. README mentions the ordering but nothing enforces or warns.
+31. `.env.example` defects listed in §1.1 (wrong `AZURE_SECRET` name, duplicate `SESSION_DRIVER`, undocumented `TELESCOPE_ENABLED`, unsafe `SCOUT_DRIVER` config default). Also PLAUSIBLE: with the `.env.example` defaults (`SCOUT_DRIVER=meilisearch`, sync queue), every admin Trove save throws if Meilisearch isn't actually running — the README suggests `SCOUT_DRIVER=null` only in passing.
+
+---
+
+## 4. Architecture — the customisation model vs. fork/template distribution
+
+### 4.1 What exists today
+
+The customisation surface is actually **four layers**, only two of them intentional:
+
+1. **`.env` → `config/branding.php`** — org name, URLs, socials. Works, and `branding.php` doubles as the documentation entry point (good).
+2. **Tracked code files orgs are told to edit** — the `:root` colour block in `resources/css/app.css`, the font `<link>`s in `layouts/app.blade.php` (which contradict the CSS `@import` instructions — four Google families load regardless), the footer attribution, `public/images/logo.png`/`banner.png` binaries, and `config/translation.php` locales.
+3. **DB / admin panel** — locales, registration toggle, `SiteContent` strings. The right home for editorial settings; correctly runtime.
+4. **Invisible hardcodes** — Plausible analytics, the Stats4SD default red (`#D32229`), the org-internal GitHub workflow.
+
+Layers 2 and 4 are what will hurt. Every file in layer 2 is a **guaranteed merge conflict** for forks pulling upstream updates: orgs *must* modify tracked files that upstream will also churn. `app.css` is the worst case — brand variables live in the same file as component styles upstream will keep editing, and it's a Tailwind build entry point, so conflicts break builds, not just cosmetics. Binary conflicts on the logo/banner are unresolvable by merge. Note that the GitHub-"template repository" route (no fork link) makes this *worse*, not better — repos started from a template have no upstream remote at all, so any update path is manual diffing; the tracked-file-edit surface should shrink to near zero before that becomes the primary distribution mode.
+
+### 4.2 Recommended direction — two moves, in order
+
+**Move 1 (cheap, do first): quarantine the org-edited surface.**
+- Extract the `:root` brand block into a `resources/css/brand.css` imported by `app.css`, and consolidate fonts there (delete the hardcoded `<link>` block — one font source of truth).
+- Make analytics config-driven (`BRAND_ANALYTICS_*` env or a snippet setting), default **off**.
+- Parameterise or remove the footer attribution.
+- Delete the cruft: the GitHub workflow, `draft.yaml`, `ResetDbAndConvert`, the `mysql_old_troves` config block, the 12 unused images, the Stats4SD `.po`/`.mo` files, the dead Breeze scaffolding.
+
+After Move 1, a fork's diff against upstream is `.env`, `brand.css`, and two image files — updates become near-trivial.
+
+**Move 2 (the real product move): visual branding into the admin panel.**
+The infrastructure is nearly free. The frontend already consumes colours exclusively via `var(--brand-*)` (mapped into Tailwind via `@theme` in `app.css:18-24`), so colours **do not need a Vite rebuild**: store them on `SiteSetting`, emit a `<style>:root{--brand-primary:…}</style>` block in the layout, and have `AdminPanelProvider::brandColour()` read the setting instead of regex-scraping `app.css` at runtime (killing that hack — which currently re-reads the file on every panel boot and matches the first occurrence, commented-out colours included). Logo/banner become Media Library uploads on `SiteSetting` — the existing hide-if-file-missing behaviour maps directly onto hide-if-no-media. At that point layer 2 disappears entirely: forks/template-repos never touch a tracked file, which is the property this distribution model actually needs. This also gives `SiteSetting` a real consumer pipeline, fixing the pattern that left `show_language_filter` dead.
+
+**Prerequisite for Move 2**: harden the settings seam first. The boot-time `SiteSetting::instance()` hydration is uncached `firstOrCreate`-on-every-boot with a swallow-all catch that currently 500s the public site when it fails (§3.D). Add the static `locales` default to `branding.php` and a `Cache::rememberForever` accessor (bust on save) *before* piling colours, logos and analytics settings onto this path.
+
+### 4.3 Is "a small number of well-documented places" realistic?
+
+As the **env-facing index**, yes — keep `config/branding.php` as the single signposted entry point; it already reads mostly as documentation and that's a feature. As the **whole** customisation story, no: colours/fonts/images can't live in a PHP config file without either a rebuild step or runtime CSS variables — and once you have runtime CSS variables, the DB/admin panel is strictly better than a config file. The honest end-state:
+
+- **`.env`** = infrastructure + org identity strings (name, URLs, mail, S3, Meilisearch, analytics ID).
+- **Admin panel** = everything visual and editorial (colours, logo, banner, locales, content strings, registration).
+- **Tracked files** = never touched by consuming orgs.
+
+The template is roughly 60% of the way there. The remaining 40% is Moves 1–2 above, plus the first-run `site:install` command, a production-grade README, LICENSE, and example CI (§1.1).
+
+### 4.4 Architectural judgements on the current code
+
+- **The Trove shadow-draft model is sound and worth keeping.** It's the best-designed, best-tested part of the codebase, `TrovePublisher` as the single lifecycle owner is exactly right, and the state-axis split (publication vs review) is clean. Its two liabilities are the Filament seam (`EditTrove`'s mid-save record swap and the media-remap machinery — see §2.2/§3.B for the fix that removes both) and the context-sensitive `PublishedScope` (§2.1), which trades explicitness for ambient magic and has already caused two real bugs outside HTTP contexts.
+- **Collections need a decision**: either they're simple (enforce the `public` flag everywhere it's currently ignored — three call sites) or they get the same lifecycle as Troves. The current state — a lifecycle-free model with an unenforced flag, indexed into search — is the worst of both.
+- **`BrowseAll` needs a rewrite before any org with a real catalogue uses this** (§2.2, §3.C 16-17): server-side pagination, eager loading, URL state, Meilisearch failure handling, and portable SQL so the main public surface becomes testable on the harness the project actually runs.
+
+---
+
+## Test coverage summary
+
+Strong: `TrovePublisher` (both publish branches, media replace/rollback, review handshake), state parity (locked), invites/password-setup lifecycles, Filament access control, slug generation/lookup. Missing, in rough priority order: anything exercising `BrowseAll`'s search/render path (blocked by MySQL-only SQL — see §2.1); private-collection visibility (would have caught §3.A-2); XSS/escaping; the zero-hit search bug; bulk-delete vs last-admin guard; invite expiry between load and submit (the PasswordSetup suite has exactly this test — copy it); the stale-editor clobber and draft-media rollback; unpublish→retitle→republish slug loss; slug collision; `PruneSupersededMedia`; `AllTrovesTable`. Two tests currently lock in *wrong* behaviour: the guest-preview blank 200 and (implicitly) the count-suffix slug scheme.

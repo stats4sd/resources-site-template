@@ -12,12 +12,12 @@
         <div class="max-w-3xl w-full mx-auto text-center">
             <!-- Heading -->
             <div class="font-bold text-left md:text-center text-4xl sm:text-5xl md:text-5xl">
-                {!! \App\Models\SiteContent::get('library_heading_line1') !!} {!! \App\Models\SiteContent::get('library_heading_line2') !!}
+                {{ \App\Models\SiteContent::get('library_heading_line1') }} {{ \App\Models\SiteContent::get('library_heading_line2') }}
             </div>
 
             <!-- Description -->
             <div class="mt-6 text-left md:text-center pr-2 mx-auto">
-                <p class="mb-4 text-xl">{!! \App\Models\SiteContent::get('library_hero_description') !!}
+                <p class="mb-4 text-xl">{{ \App\Models\SiteContent::get('library_hero_description') }}
                 </p>
             </div>
         </div>
@@ -57,8 +57,8 @@
                     <div class="pb-4 sm:pb-0 lg:pb-4 text-xl font-bold">{{ t('Filters:') }}</div>
                     <div class="divider hidden lg:block"></div>
                 </div>  
-                <!-- Language Filter -->
-                @if(count(config('branding.locales')) > 1)
+                <!-- Language Filter - hidden via the "Show language filter" site option or when only one locale is configured -->
+                @if(config('branding.features.show_language_filter', true) && count(config('branding.locales', ['en' => 'English'])) > 1)
                 <div class="" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
                     <div class="border-t border-gray-400 sm:border-0 lg:border-t mb-6 sm:my-0 lg:mb-6"></div>
                     <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
@@ -68,7 +68,7 @@
                         </svg>
                     </div>
                     <div class="space-y-2 mt-2 text-sm" x-show="open">
-                        @foreach(collect(config('branding.locales'))->sort() as $code => $label)
+                        @foreach(collect(config('branding.locales', ['en' => 'English']))->sort() as $code => $label)
                             <label class="flex items-center">
                                 <input type="checkbox" wire:model="selectedLanguages" value="{{ $code }}" wire:change="search" class="mr-2 accent-brand-primary"/>
                                 {{ $label }}
@@ -108,12 +108,21 @@
             <!-- Resources and Collections Cards -->
             <div class="flex-1">
                 <div class="p-8">
-                    @if($totalResourcesAndCollections === 0)
-                        {{ t("No resources or collections have been added yet.") }}
+                    @php
+                        $hasActiveFilters = $query || !empty($selectedLanguages) || collect($selectedTagsByType)->flatten()->isNotEmpty();
+                    @endphp
+                    @if($searchUnavailable)
+                        {{ t("Search is temporarily unavailable. Please try again later.") }}
+                    @elseif($totalResourcesAndCollections === 0)
+                        @if($hasActiveFilters)
+                            {{ t("No resources or collections match your search or filters.") }}
+                        @else
+                            {{ t("No resources or collections have been added yet.") }}
+                        @endif
                     @else
                         {{ t("Showing ") . $this->startOfPage . ' - ' . $this->endOfPage . ' ' . t("out of") . ' ' . $totalResourcesAndCollections . t(" resources and collections") }}
                     @endif
-                    @if($query || !empty($selectedLanguages) || collect($selectedTagsByType)->flatten()->isNotEmpty())
+                    @if($hasActiveFilters)
                         <button wire:click="clearFilters" class="text-gray-500 hover:text-gray-700 underline text-sm">
                             {{ t("Clear Filters") }}
                         </button>
@@ -122,12 +131,15 @@
 
                 <div id="Items-content" class="p-8 rounded-lg">
                     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                        @foreach ($this->renderedItems as $index => $item)
-                            @if($item['type'] === 'resource')
-                                <x-resource-result-card :item="$item" color="brand-secondary" textcol="white" :show-tags="false"/>
-                            @elseif($item['type'] === 'collection')
-                                <x-collection-result-card :item="$item"/>
-                            @endif
+                        @foreach ($this->renderedItems as $item)
+                            {{-- display:contents keeps the cards as effective grid children --}}
+                            <div wire:key="{{ $item['type'] }}-{{ $item['id'] }}" class="contents">
+                                @if($item['type'] === 'resource')
+                                    <x-resource-result-card :item="$item" color="brand-secondary" textcol="white" :show-tags="false"/>
+                                @elseif($item['type'] === 'collection')
+                                    <x-collection-result-card :item="$item"/>
+                                @endif
+                            </div>
                         @endforeach
                     </div>
                 </div>
@@ -138,7 +150,7 @@
                         <nav class="rounded-md shadow-xs flex w-full justify-end" aria-label="Pagination" x-data="{currentPage: $wire.entangle('currentPage')}">
 
                             <button
-                                :class="currentPage===1 ? bg-gray-50 : 'bg-white hover:text-brand-secondary'"
+                                :class="currentPage===1 ? 'bg-gray-50' : 'bg-white hover:text-brand-secondary'"
                                 class="py-2 px-4 rounded-full"
                                 x-on:click="$wire.loadPage(currentPage-1); window.scrollTo({ top: 0, behavior: 'smooth' });"
                                 {{ $currentPage === 1 ? 'disabled="disabled"' : '' }}
@@ -156,7 +168,7 @@
                             @endfor
 
                             <button
-                                :class="currentPage==={{$pageCount}} ? bg-gray-50 : 'bg-white hover:text-brand-primary'"
+                                :class="currentPage==={{$pageCount}} ? 'bg-gray-50' : 'bg-white hover:text-brand-primary'"
                                 class="py-2 px-4 rounded-full"
                                 x-on:click="$wire.loadPage(currentPage+1); window.scrollTo({ top: 0, behavior: 'smooth' });"
                                 {{ $currentPage === $pageCount ? 'disabled="disabled"' : ''}}

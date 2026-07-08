@@ -2,24 +2,24 @@
 
 namespace App\Models;
 
-use Laravel\Scout\Searchable;
-use Spatie\MediaLibrary\HasMedia;
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Translatable\HasTranslations;
-use Spatie\MediaLibrary\InteractsWithMedia;
 use Illuminate\Database\Eloquent\Casts\Attribute;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Laravel\Scout\Searchable;
 use Parallax\FilamentComments\Models\Traits\HasFilamentComments;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\Translatable\HasTranslations;
 
 class Collection extends Model implements HasMedia
 {
     use HasFactory;
-    use InteractsWithMedia;
-    use HasTranslations;
     use HasFilamentComments;
+    use HasTranslations;
+    use InteractsWithMedia;
     use Searchable;
 
     protected $casts = [
@@ -64,7 +64,7 @@ class Collection extends Model implements HasMedia
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
                 foreach ($orderedLocales as $locale) {
-                    $media = $this->getMedia('cover_image_' . $locale)->first();
+                    $media = $this->getMedia('cover_image_'.$locale)->first();
                     if ($media) {
                         return $media->getFullUrl();
                     }
@@ -87,7 +87,7 @@ class Collection extends Model implements HasMedia
                 $orderedLocales = array_merge([$currentLocale], array_diff($locales, [$currentLocale]));
 
                 foreach ($orderedLocales as $locale) {
-                    $url = $this->getFirstMediaUrl('cover_image_' . $locale, 'cover_thumb');
+                    $url = $this->getFirstMediaUrl('cover_image_'.$locale, 'cover_thumb');
                     if ($url) {
                         return $url;
                     }
@@ -125,6 +125,10 @@ class Collection extends Model implements HasMedia
             ->get();
     }
 
+    public function shouldBeSearchable(): bool
+    {
+        return (bool) $this->public;
+    }
 
     public function toSearchableArray(): array
     {
@@ -136,13 +140,13 @@ class Collection extends Model implements HasMedia
             $description = $this->getTranslation('description', $locale);
 
             // Only add unique, non-empty titles/descriptions
-            if ($title && !in_array($title, $titles)) {
+            if ($title && ! in_array($title, $titles)) {
                 $titles[] = $title;
             }
 
             if ($description) {
                 $description = strip_tags($description);
-                if (!in_array($description, $descriptions)) {
+                if (! in_array($description, $descriptions)) {
                     $descriptions[] = $description;
                 }
             }

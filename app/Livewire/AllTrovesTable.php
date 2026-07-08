@@ -82,7 +82,7 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
                     ->label('Show Troves in Collection')
                     ->action(fn(Component $livewire) => $livewire->dispatch('hideAllTroves')),
             ])
-            ->query(fn(): Builder => Trove::query())
+            ->query(fn(): Builder => Trove::query()->workingVersions())
             ->heading('All Troves')
             ->description('Select Troves to add to this Collection')
             ->columns(TroveResource::getTableColumns())

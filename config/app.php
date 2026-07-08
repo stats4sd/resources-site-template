@@ -59,8 +59,6 @@ return [
 
     'asset_url' => env('ASSET_URL'),
 
-    'front_end_url' => env('BRAND_HOME_URL', '/'),
-
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
@@ -173,7 +171,6 @@ return [
         App\Providers\EventServiceProvider::class,
         App\Providers\Filament\AdminPanelProvider::class,
         App\Providers\RouteServiceProvider::class,
-        App\Providers\TelescopeServiceProvider::class,
     ])->toArray(),
 
     /*

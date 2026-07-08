@@ -70,3 +70,11 @@ it('shows live troves and their pending drafts on the Published tab', function (
         ->assertCanSeeTableRecords([$this->published, $this->pendingDraft, $this->reviewDraft])
         ->assertCanNotSeeTableRecords([$this->neverPublished]);
 });
+
+it('renders the uploader name in the Uploader column', function () {
+    $uploader = User::factory()->create(['name' => 'Ada Lovelace']);
+    $trove = publishedTrove(['uploader_id' => $uploader->id]);
+
+    Livewire::test(ListTroves::class)
+        ->assertTableColumnStateSet('uploader.name', 'Ada Lovelace', record: $trove);
+});

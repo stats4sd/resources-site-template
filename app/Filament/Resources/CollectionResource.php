@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
+use App\Support\HtmlSanitizer;
 use Filament\Schemas\Schema;
 use App\Models\Collection;
 use Filament\Tables\Table;
@@ -14,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Actions\BulkActionGroup;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Section;
 use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\CollectionResource\Pages;
@@ -49,7 +51,13 @@ class CollectionResource extends Resource
                     ->extraAttributes(['class' => 'grey-box'])
                     ->label('Describe the Collection')
                     ->description('For example: What is this collection? Who is it for? Why was it curated?')
-                    ->childField(Forms\Components\MarkdownEditor::class)
+                    ->childField(
+                        Forms\Components\RichEditor::make('description')
+                        ->disableToolbarButtons([
+                            'attachFiles'
+                        ])
+                        ->dehydrateStateUsing(fn (?string $state): ?string => HtmlSanitizer::clean($state)),
+                    )
                     ->required(),
 
                 Section::make('cover_image')
@@ -122,7 +130,7 @@ class CollectionResource extends Resource
                     ->label('Curated By')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('troves_count')
-                    ->counts('troves')
+                    ->counts(['troves' => fn (Builder $query) => $query->workingVersions()])
                     ->label('# Troves')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('public')

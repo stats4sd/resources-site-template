@@ -8,23 +8,15 @@ class SearchBar extends Component
 {
     public string $query = '';
     public ?string $inputClass = null;
-    private string $previousQuery = '';
 
     protected $listeners = [
-        'clearSearchInput' => 'clearQuery', 
-        'queryUpdated' => 'updateQuery', 
+        'clearSearchInput' => 'clearQuery',
+        'queryUpdated' => 'updateQuery',
     ];
-    
+
     public function search()
     {
-        if ($this->query === $this->previousQuery) {
-            return;
-        }
-
         $this->dispatch('queryUpdated', $this->query);
-
-        $this->previousQuery = $this->query;
-
     }
 
     public function updateQuery($query)

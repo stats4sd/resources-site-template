@@ -86,7 +86,7 @@ class ViewCollection extends ViewRecord
                                     ->disk(config('media-library.disk_name'))
                                     ->width('500px')
                                     ->height('auto'),
-                                TextEntry::make('description'),
+                                TextEntry::make('description')->html(),
                             ]),
                     ]),
             ]);

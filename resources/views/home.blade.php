@@ -10,14 +10,14 @@
 
                         <div class="pl-32 pr-8 max-w-2xl">
                             <div class="text-4xl md:text-5xl font-bold text-brand-primary">
-                                {!! \App\Models\SiteContent::get('home_heading_line1') !!}
+                                {{ \App\Models\SiteContent::get('home_heading_line1') }}
                             </div>
                             <div class="text-5xl md:text-6xl font-bold pt-2">
-                                {!! \App\Models\SiteContent::get('home_heading_line2') !!}
+                                {{ \App\Models\SiteContent::get('home_heading_line2') }}
                             </div>
 
                             <p class="pt-16 mb-4">
-                                {!! \App\Models\SiteContent::get('home_intro') !!}
+                                {{ \App\Models\SiteContent::get('home_intro') }}
                             </p>
                         </div>
                     </div>
@@ -40,5 +40,4 @@
         </div>
     </div>
     <div class="pb-20"></div>
-    </div>
 @endsection

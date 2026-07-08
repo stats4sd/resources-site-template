@@ -14,6 +14,10 @@ class SiteContentSeeder extends Seeder
 
         $orgName = config('branding.org_name', '');
 
+        if ($orgName === '' || $orgName === 'Your Organisation') {
+            $this->command?->warn('BRAND_ORG_NAME is not set (or still the "Your Organisation" default). Set it in .env before seeding, otherwise the placeholder name is baked into SiteContent and changing .env later will not update it.');
+        }
+
         $defaults = [
             'home_heading_line1' => [
                 $defaultLocale => $orgName,
