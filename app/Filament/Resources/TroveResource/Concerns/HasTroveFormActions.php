@@ -8,6 +8,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The three explicit, self-describing footer actions shared by CreateTrove and EditTrove:
@@ -26,6 +27,7 @@ trait HasTroveFormActions
 
     /** Remembered across the save so the saved-notification title matches what happened. */
     protected bool $justPublished = false;
+
     protected bool $justRequestedReview = false;
 
     protected function getFormActions(): array
@@ -40,7 +42,18 @@ trait HasTroveFormActions
     /** Route the action through the page's own create()/save() so hooks fire normally. */
     protected function triggerTroveSave(): void
     {
-        $this instanceof CreateRecord ? $this->create() : $this->save();
+        try {
+            $this instanceof CreateRecord ? $this->create() : $this->save();
+        } catch (ValidationException $exception) {
+            // Publish confirms via a modal (requiresConfirmation), so Filament keeps that
+            // modal open on any ValidationException, assuming it came from the modal's own
+            // fields. Here it comes from the page form beneath (create()/save() validates it),
+            // so the modal would sit on top of unreachable errors. Close it, then rethrow so
+            // Livewire surfaces the field errors on the form.
+            $this->unmountAction();
+
+            throw $exception;
+        }
     }
 
     protected function saveDraftAction(): Action
