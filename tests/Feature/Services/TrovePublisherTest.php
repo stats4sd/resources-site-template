@@ -259,6 +259,41 @@ it('leaves the canonical media on disk when the publish transaction rolls back',
         ->and(Storage::disk('public')->exists($originalPath))->toBeTrue();
 });
 
+it('preserves the draft media files on disk when the publish transaction rolls back', function () {
+    $canonical = canonicalWithEverything();
+    $draft = $this->publisher->draftFor($canonical->fresh());
+    $draftMedia = $draft->getMedia('content_en')->first();
+    $draftPath = $draftMedia->id.'/'.$draftMedia->file_name;
+    expect(Storage::disk('public')->exists($draftPath))->toBeTrue();
+
+    // Fail AFTER the draft row is force-deleted but before the publish transaction commits.
+    // The draft's media must be preserved through the delete (deferred to afterCommit, which
+    // never runs on rollback) rather than removed synchronously inside the transaction.
+    Trove::forceDeleted(function () {
+        throw new RuntimeException('boom after draft force-delete');
+    });
+
+    try {
+        $this->publisher->publish($draft->fresh());
+    } catch (RuntimeException) {
+        // expected
+    }
+
+    expect(Storage::disk('public')->exists($draftPath))->toBeTrue();
+});
+
+it('removes the draft media files after a successful publish commit', function () {
+    $canonical = canonicalWithEverything();
+    $draft = $this->publisher->draftFor($canonical->fresh());
+    $draftMedia = $draft->getMedia('content_en')->first();
+    $draftPath = $draftMedia->id.'/'.$draftMedia->file_name;
+
+    $this->publisher->publish($draft->fresh());
+
+    expect(Media::find($draftMedia->id))->toBeNull()
+        ->and(Storage::disk('public')->exists($draftPath))->toBeFalse();
+});
+
 // -----------------------------------------------------------------------------
 // discardDraft()
 // -----------------------------------------------------------------------------
@@ -325,6 +360,36 @@ describe('unpublish', function () {
 
         // (PublishedScope is off in this admin-panel test context; assert the column directly.)
         expect(Trove::withDrafts()->find($canonical->id)->published_at)->toBeNull();
+    });
+
+    it('keeps the canonical media on disk when unpublish rolls back after its inner publish', function () {
+        $canonical = canonicalWithEverything();
+        $originalMedia = $canonical->getMedia('content_en')->first();
+        $originalPath = $originalMedia->id.'/'.$originalMedia->file_name;
+
+        // A pending draft forces unpublish down its "fold the draft in, then unpublish" path,
+        // whose inner publish() stashes the canonical's media inside the OUTER transaction.
+        $this->publisher->draftFor($canonical->fresh());
+
+        // Fail the final published_at = null save. The stashed-media purge must be deferred to
+        // the outer commit (never reached), not run inside the inner publish's savepoint.
+        Trove::updating(function (Trove $trove) {
+            $isUnpublishSave = $trove->published_id === null
+                && $trove->getOriginal('published_at') !== null
+                && $trove->getAttribute('published_at') === null;
+
+            if ($isUnpublishSave) {
+                throw new RuntimeException('boom on unpublish save');
+            }
+        });
+
+        try {
+            $this->publisher->unpublish($canonical->fresh());
+        } catch (RuntimeException) {
+            // expected
+        }
+
+        expect(Storage::disk('public')->exists($originalPath))->toBeTrue();
     });
 
     it('folds a pending draft in first, then unpublishes, leaving a single row', function () {

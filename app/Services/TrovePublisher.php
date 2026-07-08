@@ -189,10 +189,12 @@ class TrovePublisher
             return $canonical->refresh();
         });
 
-        // Physically remove the stashed media now that the DB state is committed. Best
-        // effort: the publish has already succeeded, so a failure here must not surface
-        // as an error — leftover trash rows are swept up by PruneSupersededMedia.
-        $this->purgeSupersededMedia($canonical);
+        // Physically remove the stashed media only once the outermost transaction has
+        // committed. Deferring via afterCommit keeps this correct when publish() runs inside
+        // a caller's transaction (e.g. unpublish()): the files are never deleted while an
+        // enclosing transaction could still roll back. Best effort — leftover trash rows are
+        // swept up by PruneSupersededMedia if this ever fails.
+        DB::afterCommit(fn () => $this->purgeSupersededMedia($canonical));
 
         return $canonical;
     }
@@ -370,13 +372,25 @@ class TrovePublisher
         }
     }
 
-    /** Detach pivots and hard-delete a shadow draft row (its media go with the model delete). */
+    /**
+     * Detach pivots and hard-delete a shadow draft row. The draft's media files are removed
+     * only after the enclosing transaction commits: the row is force-deleted while PRESERVING
+     * its media (Spatie's deleting hook is skipped), and the files are deleted via afterCommit.
+     * A rollback therefore leaves the files intact; a leftover orphan is reclaimed by
+     * PruneSupersededMedia.
+     */
     private function deleteDraftRow(Trove $draft): void
     {
         foreach ($draft->getDraftableRelations() as $relation) {
             $draft->{$relation}()->detach();
         }
 
-        $draft->forceDelete();
+        $mediaIds = $draft->media()->pluck('id')->all();
+
+        $draft->forceDeletePreservingMedia();
+
+        DB::afterCommit(function () use ($mediaIds) {
+            Media::whereIn('id', $mediaIds)->get()->each->delete();
+        });
     }
 }
