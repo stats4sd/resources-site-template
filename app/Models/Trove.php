@@ -74,15 +74,51 @@ class Trove extends Model implements HasMedia
         });
 
         static::saving(function (Trove $trove) {
-
-            if($trove->isDirty('title')) {
-
+            if ($trove->isDirty('title')) {
                 $trove->slug = $trove->generateSlug();
             }
 
-
-
+            $trove->recordPreviousSlug();
         });
+    }
+
+    /**
+     * When a canonical row's slug changes, remember the old one so its public URL keeps
+     * 301-redirecting. Shadow drafts (published_id set) legitimately share the canonical's
+     * slug and are skipped. Deduped, so it composes with TrovePublisher's own handling.
+     */
+    protected function recordPreviousSlug(): void
+    {
+        if (! $this->isDirty('slug')) {
+            return;
+        }
+
+        if ($this->published_id !== null) {
+            return;
+        }
+
+        $originalSlug = $this->getOriginal('slug');
+
+        if ($originalSlug === null) {
+            return;
+        }
+
+        $this->previous_slugs = array_values(array_unique(
+            array_merge($this->previous_slugs ?? [], [$originalSlug])
+        ));
+    }
+
+    /**
+     * Hard-delete this row without deleting its media files. Spatie's deleting hook checks
+     * this flag and skips deleteAllMedia(); the flag must be set on the real (protected)
+     * property, which is only reachable from inside the model. Callers that need the files
+     * gone must remove them separately (see App\Services\TrovePublisher::deleteDraftRow()).
+     */
+    public function forceDeletePreservingMedia(): bool
+    {
+        $this->deletePreservingMedia = true;
+
+        return $this->forceDelete();
     }
 
     /**
@@ -564,24 +600,35 @@ class Trove extends Model implements HasMedia
 
         // set the slug to the first available title locale
         $locales = $this->getTranslatedLocales('title');
+        $base = Str::slug($this->getTranslation('title', $locales[0]));
 
-        $slug = Str::slug($this->getTranslation('title', $locales[0]));
+        // Probe candidates (base, base-2, base-3, …) until one is free. Counting matches is
+        // not enough: with "foo" and "foo-1" already present, a count of 1 would re-emit the
+        // taken "foo-1". Only canonical rows can hold a slug — a shadow draft shares its
+        // canonical's — so drafts are excluded from the collision check.
+        $slug = $base;
+        $suffix = 2;
 
-        // check for uniqueness and append a number if necessary
-        $uniquenessQuery = $this::withTrashed()
-            ->withDrafts()
-            ->where('slug', $slug);
-
-        if ($this->id) {
-            $uniquenessQuery = $uniquenessQuery->where('id', '!=', $this->id);
-        }
-
-        $count = $uniquenessQuery->count();
-
-        if ($count > 0) {
-            $slug = $slug.'-'.$count;
+        while ($this->canonicalSlugExists($slug)) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
         }
 
         return $slug;
+    }
+
+    /** Whether a canonical row (other than this one) already holds $slug. */
+    private function canonicalSlugExists(string $slug): bool
+    {
+        $query = static::withTrashed()
+            ->withDrafts()
+            ->whereNull('published_id')
+            ->where('slug', $slug);
+
+        if ($this->id) {
+            $query->where('id', '!=', $this->id);
+        }
+
+        return $query->exists();
     }
 }

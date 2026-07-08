@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Actions\BulkActionGroup;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Section;
 use LaraZeus\SpatieTranslatable\Resources\Concerns\Translatable;
 use App\Filament\Resources\CollectionResource\Pages;
@@ -129,7 +130,7 @@ class CollectionResource extends Resource
                     ->label('Curated By')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('troves_count')
-                    ->counts('troves')
+                    ->counts(['troves' => fn (Builder $query) => $query->workingVersions()])
                     ->label('# Troves')
                     ->sortable(),
                 Tables\Columns\IconColumn::make('public')
