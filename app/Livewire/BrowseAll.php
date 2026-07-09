@@ -49,7 +49,23 @@ class BrowseAll extends Component
         // The set.locale middleware has already resolved and set the app locale for this request.
         $this->renderedItems = collect();
 
+        $this->initialiseTagFilters();
         $this->fetchInitialData();
+    }
+
+    /**
+     * Every filterable tag type needs its selectedTagsByType key present as an array before
+     * the first render: the checkboxes bind to selectedTagsByType.{tagTypeId}, and Livewire's
+     * client only treats a checkbox as part of a group when the bound value is already an
+     * array. An undefined key makes a click set the whole key to boolean true — visually
+     * checking every box in the group and crashing search()'s whereIn.
+     */
+    private function initialiseTagFilters(): void
+    {
+        $this->selectedTagsByType = TagType::where('show_in_filter', true)
+            ->pluck('id')
+            ->mapWithKeys(fn (int $tagTypeId) => [$tagTypeId => []])
+            ->all();
     }
 
     public function fetchInitialData()
@@ -191,7 +207,8 @@ class BrowseAll extends Component
 
     public function clearFilters()
     {
-        $this->reset('query', 'selectedLanguages', 'selectedTagsByType');
+        $this->reset('query', 'selectedLanguages');
+        $this->initialiseTagFilters();
         $this->dispatch('clearSearchInput');
         $this->search();
     }

@@ -2,6 +2,8 @@
 
 use App\Livewire\BrowseAll;
 use App\Models\Collection;
+use App\Models\Tag;
+use App\Models\TagType;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\Engines\Engine;
 
@@ -86,6 +88,49 @@ it('flags search as unavailable and returns no results when the engine throws', 
 
     expect($component->searchUnavailable)->toBeTrue()
         ->and($component->items)->toHaveCount(0);
+});
+
+// The tag-filter checkboxes bind to selectedTagsByType.{tagTypeId}. Livewire's client only
+// treats a checkbox as part of a group when the bound value is already an array — an undefined
+// key makes a click set the whole key to boolean true (checking every box in the group) and
+// then crash search()'s whereIn. Each filterable tag type's key must therefore exist as an
+// array from mount onwards, and survive clearFilters().
+it('initialises an empty tag filter array per filterable tag type on mount', function () {
+    $filterable = TagType::factory()->shownInFilter()->create();
+    TagType::factory()->create();
+
+    $component = new BrowseAll;
+    $component->mount();
+
+    expect($component->selectedTagsByType)->toBe([$filterable->id => []]);
+});
+
+it('re-initialises the tag filter arrays when filters are cleared', function () {
+    $filterable = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($filterable)->create();
+
+    $component = new BrowseAll;
+    $component->mount();
+    $component->selectedTagsByType[$filterable->id] = [$tag->id];
+
+    $component->clearFilters();
+
+    expect($component->selectedTagsByType)->toBe([$filterable->id => []]);
+});
+
+it('filters resources to those tagged with the selected tags', function () {
+    $filterable = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($filterable)->create();
+    $tagged = publishedTrove();
+    $tagged->tags()->attach($tag);
+    publishedTrove();
+
+    $component = new BrowseAll;
+    $component->mount();
+    $component->selectedTagsByType[$filterable->id] = [$tag->id];
+    $component->search();
+
+    expect($component->items->where('type', 'resource')->pluck('id')->all())->toBe([$tagged->id]);
 });
 
 it('clamps loadPage to the valid page range', function () {
