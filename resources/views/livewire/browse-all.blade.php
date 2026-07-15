@@ -80,9 +80,50 @@
                     </div>
                     <div class="space-y-2 mt-2 text-sm" x-show="open">
                         @foreach(collect(config('branding.locales', ['en' => 'English']))->sort() as $code => $label)
-                            <label class="flex items-center">
-                                <input type="checkbox" wire:model.live="selectedLanguages" value="{{ $code }}" class="mr-2 accent-brand-primary"/>
-                                {{ $label }}
+                            @php
+                                $localeCount = $localeCounts[$code] ?? 0;
+                                $localeSelected = in_array($code, $selectedLanguages);
+                                $localeMuted = $facetsAvailable && $localeCount === 0 && !$localeSelected;
+                            @endphp
+                            <label class="flex items-center {{ $localeMuted ? 'text-gray-400' : '' }}">
+                                <input type="checkbox" wire:model.live="selectedLanguages" value="{{ $code }}" class="mr-2 accent-brand-primary" @disabled($localeMuted)/>
+                                <span class="flex-1">{{ $label }}</span>
+                                @if($facetsAvailable)
+                                    <span class="ml-2 text-xs {{ $localeMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $localeCount }}</span>
+                                @endif
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <!-- Resource Type Filter -->
+                @if($filterTroveTypes->isNotEmpty())
+                <div class="sm:ml-6 lg:ml-0" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
+                    <div class="border-t border-gray-400 sm:border-0 lg:border-t my-6 sm:my-0 lg:my-6"></div>
+                    <div class="flex justify-between items-center cursor-pointer" @click="open = !open">
+                        <label class="text-base lg:font-bold">{{ t('Type:') }}</label>
+                        <svg class="w-5 h-5 ml-2 transition-transform duration-300" :class="open ? 'rotate-90' : '-rotate-90'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                    </div>
+                    <div class="space-y-2 mt-4 text-sm" x-show="open">
+                        @foreach($filterTroveTypes as $filterTroveType)
+                            @php
+                                $troveTypeCount = $troveTypeCounts[$filterTroveType->id] ?? 0;
+                                $troveTypeSelected = in_array($filterTroveType->id, array_map('intval', $selectedTroveTypes));
+                                $troveTypeMuted = $facetsAvailable && $troveTypeCount === 0 && !$troveTypeSelected;
+                            @endphp
+                            <label class="flex items-center rounded cursor-pointer {{ $troveTypeMuted ? 'text-gray-400' : '' }}">
+                                <input type="checkbox"
+                                    wire:model.live="selectedTroveTypes"
+                                    value="{{ $filterTroveType->id }}"
+                                    class="mr-2 accent-brand-primary"
+                                    @disabled($troveTypeMuted)/>
+                                <span class="flex-1">{{ $filterTroveType->label }}</span>
+                                @if($facetsAvailable)
+                                    <span class="ml-2 text-xs {{ $troveTypeMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $troveTypeCount }}</span>
+                                @endif
                             </label>
                         @endforeach
                     </div>
@@ -101,12 +142,21 @@
                     </div>
                     <div class="space-y-2 mt-4 text-sm" x-show="open">
                         @foreach($filterTagType->tags as $tag)
-                            <label class="flex items-center rounded cursor-pointer">
+                            @php
+                                $tagCount = $tagCounts[$tag->id] ?? 0;
+                                $tagSelected = in_array($tag->id, array_map('intval', $selectedTagsByType[$filterTagType->id] ?? []));
+                                $tagMuted = $facetsAvailable && $tagCount === 0 && !$tagSelected;
+                            @endphp
+                            <label class="flex items-center rounded cursor-pointer {{ $tagMuted ? 'text-gray-400' : '' }}">
                                 <input type="checkbox"
                                     wire:model.live="selectedTagsByType.{{ $filterTagType->id }}"
                                     value="{{ $tag->id }}"
-                                    class="mr-2 accent-brand-primary"/>
-                                {{ $tag->name }}
+                                    class="mr-2 accent-brand-primary"
+                                    @disabled($tagMuted)/>
+                                <span class="flex-1">{{ $tag->name }}</span>
+                                @if($facetsAvailable)
+                                    <span class="ml-2 text-xs {{ $tagMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $tagCount }}</span>
+                                @endif
                             </label>
                         @endforeach
                     </div>
@@ -160,29 +210,65 @@
                     <nav class="rounded-md shadow-xs flex w-full justify-end" aria-label="{{ t('Pagination') }}">
                         <button
                             type="button"
-                            class="py-2 px-4 rounded-full {{ $page === 1 ? 'bg-gray-50' : 'bg-white hover:text-brand-secondary' }}"
+                            class="py-2 px-4 rounded-full {{ $page === 1 ? 'bg-gray-50 text-gray-400' : 'bg-white hover:text-brand-primary' }}"
+                            wire:click="goToPage(1)"
+                            x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                            aria-label="{{ t('First page') }}"
+                            @disabled($page === 1)
+                        >
+                            {{ t('First') }}
+                        </button>
+
+                        <button
+                            type="button"
+                            class="py-2 px-4 rounded-full {{ $page === 1 ? 'bg-gray-50 text-gray-400' : 'bg-white hover:text-brand-primary' }}"
                             wire:click="goToPage({{ $page - 1 }})"
+                            x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                            aria-label="{{ t('Previous page') }}"
                             @disabled($page === 1)
                         >
                             {{ t('Previous') }}
                         </button>
+
+                        @if(($pageWindow[0] ?? 1) > 1)
+                            <span class="py-2 px-2" aria-hidden="true">&hellip;</span>
+                        @endif
 
                         @foreach($pageWindow as $pageNumber)
                             <button
                                 type="button"
                                 class="py-2 px-4 rounded-full {{ $page === $pageNumber ? 'text-white bg-brand-primary' : 'text-black hover:text-brand-primary' }}"
                                 wire:click="goToPage({{ $pageNumber }})"
+                                x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                                aria-label="{{ t('Page') }} {{ $pageNumber }}"
                                 @if($page === $pageNumber) aria-current="page" @endif
                             >{{ $pageNumber }}</button>
                         @endforeach
 
+                        @if((end($pageWindow) ?: $totalPages) < $totalPages)
+                            <span class="py-2 px-2" aria-hidden="true">&hellip;</span>
+                        @endif
+
                         <button
                             type="button"
-                            class="py-2 px-4 rounded-full {{ $page === $totalPages ? 'bg-gray-50' : 'bg-white hover:text-brand-primary' }}"
+                            class="py-2 px-4 rounded-full {{ $page === $totalPages ? 'bg-gray-50 text-gray-400' : 'bg-white hover:text-brand-primary' }}"
                             wire:click="goToPage({{ $page + 1 }})"
+                            x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                            aria-label="{{ t('Next page') }}"
                             @disabled($page === $totalPages)
                         >
                             {{ t('Next') }}
+                        </button>
+
+                        <button
+                            type="button"
+                            class="py-2 px-4 rounded-full {{ $page === $totalPages ? 'bg-gray-50 text-gray-400' : 'bg-white hover:text-brand-primary' }}"
+                            wire:click="goToPage({{ $totalPages }})"
+                            x-on:click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+                            aria-label="{{ t('Last page') }}"
+                            @disabled($page === $totalPages)
+                        >
+                            {{ t('Last') }}
                         </button>
                     </nav>
                 </div>
