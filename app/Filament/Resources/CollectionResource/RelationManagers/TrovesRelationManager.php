@@ -4,21 +4,15 @@ namespace App\Filament\Resources\CollectionResource\RelationManagers;
 
 use App\Filament\Resources\TroveResource;
 use App\Models\Trove;
-use App\Models\TroveType;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DetachAction;
+use Filament\Actions\DetachBulkAction;
 use Filament\Forms;
-use Filament\Tables;
+use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Table;
-use Filament\Actions\Action;
-use Filament\Actions\DetachAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DetachBulkAction;
-use Filament\Forms\Components\Select;
-use Filament\Notifications\Notification;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Resources\RelationManagers\RelationManager;
 use LaraZeus\SpatieTranslatable\Resources\RelationManagers\Concerns\Translatable;
 use Livewire\Attributes\Reactive;
 use Livewire\Component;
@@ -56,7 +50,7 @@ class TrovesRelationManager extends RelationManager
             ->headerActions([
                 Action::make('show_all_troves')
                     ->label('Show All Troves')
-                    ->action(fn(Component $livewire) => $livewire->dispatch('showAllTroves')),
+                    ->action(fn (Component $livewire) => $livewire->dispatch('showAllTroves')),
             ])
             ->recordTitleAttribute('title')
             ->searchable()
@@ -64,16 +58,16 @@ class TrovesRelationManager extends RelationManager
             ->heading('Troves in this Collection')
             ->columns(TroveResource::getTableColumns())
             ->filters(TroveResource::getTableFilters())
-            ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
-            ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
+            ->filtersTriggerAction(fn ($action) => $action->button()->label('Filters'))
+            ->filtersLayout(fn () => FiltersLayout::AboveContentCollapsible)
             ->recordActions([
                 Action::make('preview_trove')
                     ->label('Preview on Front-end')
                     ->icon('heroicon-o-eye')
                     ->url(function (Trove $record) {
                         return $record->is_published
-                            ? url('/resources/' . $record->slug)
-                            : url('/resources/preview/' . $record->slug);
+                            ? url('/resources/'.$record->slug)
+                            : url('/resources/preview/'.$record->slug);
                     })
                     ->openUrlInNewTab()
                     ->action(null)
@@ -81,15 +75,18 @@ class TrovesRelationManager extends RelationManager
                 DetachAction::make()
                     ->label('Remove trove from collection')
                     ->modalHeading('Remove trove from collection')
-                    ->successNotificationTitle('Trove removed from collection'),
+                    ->successNotificationTitle('Trove removed from collection')
+                    ->after(fn () => $this->getOwnerRecord()->searchable()),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     // DeleteBulkAction::make(),
-                    DetachBulkAction::make()->label('Remove troves from collection'),
+                    DetachBulkAction::make()
+                        ->label('Remove troves from collection')
+                        ->after(fn () => $this->getOwnerRecord()->searchable()),
                 ]),
             ])
-            ->recordUrl(fn(Trove $record) => url('/resources/' . $record->slug))
+            ->recordUrl(fn (Trove $record) => url('/resources/'.$record->slug))
             ->emptyStateDescription(
                 'Use the "Show All Troves" button above to find troves to add to the collection.'
             );

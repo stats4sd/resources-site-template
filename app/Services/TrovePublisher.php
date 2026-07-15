@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Collection;
 use App\Models\Trove;
 use App\Models\User;
 use Illuminate\Support\Arr;
@@ -18,23 +19,6 @@ use Throwable;
  */
 class TrovePublisher
 {
-    /**
-     * Attributes that must never be copied between the canonical row and its draft:
-     * identity, publishing state and the review handshake are per-row, not content.
-     */
-    private const NON_CONTENT = [
-        'id',
-        'published_id',
-        'published_at',
-        'created_at',
-        'updated_at',
-        'deleted_at',
-        'reviewer_id',
-        'requester_id',
-        'review_requested_at',
-        'reviewed_at',
-    ];
-
     /**
      * Suffix appended to a collection_name to move media out of its live collection
      * without touching disk (see stashMediaForReplacement()). Never a substring that
@@ -142,6 +126,10 @@ class TrovePublisher
                 $this->applyReviewStateOnPublish($draft, $draft);
                 $draft->save();
 
+                // Its collections just gained a published member, changing their
+                // aggregated search attributes.
+                $this->reindexCollections($draft->collections()->pluck('collections.id')->all());
+
                 return $draft;
             });
         }
@@ -157,13 +145,31 @@ class TrovePublisher
 
             $previousSlug = $canonical->slug;
 
+            $collectionIdsBefore = $canonical->collections()->pluck('collections.id')->all();
+
+            // Attributes that must never be copied between the canonical row and its
+            // draft: identity, publishing state and the review handshake are per-row,
+            // not content.
+            $nonContentAttributes = [
+                'id',
+                'published_id',
+                'published_at',
+                'created_at',
+                'updated_at',
+                'deleted_at',
+                'reviewer_id',
+                'requester_id',
+                'review_requested_at',
+                'reviewed_at',
+            ];
+
             // Copy the draft's content raw (as replicate() does).
             // Both rows share the same schema/casts, so the
             // raw representation transfers verbatim; merging over the canonical's own
-            // attributes preserves its NON_CONTENT (identity/publishing/review) fields.
+            // attributes preserves its non-content (identity/publishing/review) fields.
             $canonical->setRawAttributes(array_merge(
                 $canonical->getAttributes(),
-                Arr::except($draft->getAttributes(), self::NON_CONTENT)
+                Arr::except($draft->getAttributes(), $nonContentAttributes)
             ));
 
             // Preserve the original publish date and track any slug change for redirects.
@@ -175,9 +181,9 @@ class TrovePublisher
             if ($canonical->published_at === null) {
                 $canonical->published_at = now();
             }
-            // NON_CONTENT excludes the review fields, so forceFill did not carry the draft's
-            // request onto the canonical; set the canonical's review state explicitly from
-            // the draft's completion state.
+            // The non-content attributes exclude the review fields, so the raw copy did
+            // not carry the draft's request onto the canonical; set the canonical's
+            // review state explicitly from the draft's completion state.
             $this->applyReviewStateOnPublish($canonical, $draft);
             $canonical->save();
 
@@ -185,6 +191,11 @@ class TrovePublisher
             $this->copyMedia($draft, $canonical, replace: true);
 
             $this->deleteDraftRow($draft);
+
+            // Membership may have changed either way: collections the canonical left
+            // and collections it joined both need their aggregates rebuilt.
+            $collectionIdsAfter = $canonical->collections()->pluck('collections.id')->all();
+            $this->reindexCollections(array_unique(array_merge($collectionIdsBefore, $collectionIdsAfter)));
 
             return $canonical->refresh();
         });
@@ -226,7 +237,12 @@ class TrovePublisher
                 $this->deleteDraftRow($draft);
             }
 
+            $collectionIds = $canonical->collections()->pluck('collections.id')->all();
+
             $canonical->delete();
+
+            // The collections just lost a (possibly published) member.
+            $this->reindexCollections($collectionIds);
         });
     }
 
@@ -246,6 +262,9 @@ class TrovePublisher
 
             $canonical->published_at = null;
             $canonical->save();
+
+            // Its collections just lost a published member.
+            $this->reindexCollections($canonical->collections()->pluck('collections.id')->all());
         });
     }
 
@@ -295,6 +314,27 @@ class TrovePublisher
             $canonical->reviewed_at = null;
             $canonical->reviewer_id = null;
         }
+    }
+
+    /**
+     * Rebuild the search documents of the given collections — their aggregated
+     * tag_ids/trove_type_ids depend on member troves' published state and membership.
+     * Deferred until the outermost transaction commits so the index never reads
+     * uncommitted (or rolled-back) state; Scout drops collections that fail
+     * shouldBeSearchable(), so private collections are never pushed.
+     *
+     * @param  array<int, int>  $collectionIds
+     */
+    private function reindexCollections(array $collectionIds): void
+    {
+        if ($collectionIds === []) {
+            return;
+        }
+
+        DB::afterCommit(fn () => Collection::query()
+            ->whereIn('id', $collectionIds)
+            ->get()
+            ->searchable());
     }
 
     /** Sync the draftable relations (tags, collections) from $from onto $to. */
