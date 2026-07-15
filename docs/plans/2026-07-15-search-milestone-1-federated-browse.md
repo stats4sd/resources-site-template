@@ -1,6 +1,6 @@
 # Search Milestone 1 — Federated Meilisearch search and the BrowseAll rewrite
 
-**Status:** Not Started
+**Status:** In Progress — Phase 1 underway: Tasks 1–2 done (enriched index documents + declared index settings; SearchesLibrary contract, DTOs, Meilisearch/Database implementations + container binding). Remaining: Tasks 3–6, then the pause point.
 
 **Review:** [docs/code-reviews/search-and-browse-review.md](../code-reviews/search-and-browse-review.md) (§3 is the design this plan implements). Decisions taken by the maintainer on 2026-07-15: keep Meilisearch and lean into it; federated multi-search; tags (`tag_ids` + searchable `tag_names`) and trove type into the index as filterable attributes; collections participate in tag filtering via aggregated member-trove tags (option a); browse-mode default sort is publication date descending; remove `Trove::themeAndTopicTags()`; faceted counts from Meilisearch on the tag/type filters; keyboard-accessible clear/pagination controls and alt text on card images.
 
