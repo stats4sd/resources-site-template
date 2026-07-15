@@ -31,13 +31,17 @@
                 <div class="pb-4 sm:pb-0 lg:pb-4 sm:hidden lg:block">
                     <div class="pb-4 sm:pb-0 lg:pb-4 text-xl font-bold">{{ t('Search and filter') }}</div>
                     <div class="divider hidden lg:block"></div>
-                </div>  
+                </div>
 
-                <!-- Search bar -->
+                <!-- Search input -->
                 <div class="relative flex items-center mb-6">
-                    <livewire:search-bar
-                        inputClass="w-full py-2 pl-12 pr-4 bg-gray-200 border-none rounded-full focus:outline-none transition
-                        duration-300 focus:bg-gray-100 focus:ring-0 text-gray-700"/>
+                    <input
+                        type="text"
+                        class="w-full py-2 pl-12 pr-4 bg-gray-200 border-none rounded-full focus:outline-none transition duration-300 focus:bg-gray-100 focus:ring-0 text-gray-700"
+                        placeholder="{{ t('Search here') }}"
+                        aria-label="{{ t('Search resources and collections') }}"
+                        wire:model.live.debounce.400ms="query"
+                    >
 
                     <div class="absolute left-3 top-1/2 transform -translate-y-1/2">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor" class="w-5 h-5 text-gray-600">
@@ -47,16 +51,23 @@
 
                     <!-- Clear Button -->
                     @if($query)
-                        <svg xmlns="http://www.w3.org/2000/svg" wire:click="clearSearch" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="gray" class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 cursor-pointer hover:stroke-gray-700 transition-colors duration-200">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                        <button
+                            type="button"
+                            wire:click="clearSearch"
+                            aria-label="{{ t('Clear search') }}"
+                            class="absolute right-3 top-1/2 transform -translate-y-1/2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="gray" class="w-5 h-5 cursor-pointer hover:stroke-gray-700 transition-colors duration-200">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
                     @endif
                 </div>
             <div class="flex flex-col sm:flex-row lg:flex-col sm:mb-2 sm:mt-4 lg:my-0">
             <div class="pb-4 sm:pb-0 ml-2 mr-16 lg:pb-4 hidden sm:block lg:hidden">
                     <div class="pb-4 sm:pb-0 lg:pb-4 text-xl font-bold">{{ t('Filters:') }}</div>
                     <div class="divider hidden lg:block"></div>
-                </div>  
+                </div>
                 <!-- Language Filter - hidden via the "Show language filter" site option or when only one locale is configured -->
                 @if(config('branding.features.show_language_filter', true) && count(config('branding.locales', ['en' => 'English'])) > 1)
                 <div class="" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
@@ -70,7 +81,7 @@
                     <div class="space-y-2 mt-2 text-sm" x-show="open">
                         @foreach(collect(config('branding.locales', ['en' => 'English']))->sort() as $code => $label)
                             <label class="flex items-center">
-                                <input type="checkbox" wire:model="selectedLanguages" value="{{ $code }}" wire:change="search" class="mr-2 accent-brand-primary"/>
+                                <input type="checkbox" wire:model.live="selectedLanguages" value="{{ $code }}" class="mr-2 accent-brand-primary"/>
                                 {{ $label }}
                             </label>
                         @endforeach
@@ -92,10 +103,9 @@
                         @foreach($filterTagType->tags as $tag)
                             <label class="flex items-center rounded cursor-pointer">
                                 <input type="checkbox"
-                                    wire:model="selectedTagsByType.{{ $filterTagType->id }}"
+                                    wire:model.live="selectedTagsByType.{{ $filterTagType->id }}"
                                     value="{{ $tag->id }}"
-                                    class="mr-2 accent-brand-primary"
-                                    wire:change="search"/>
+                                    class="mr-2 accent-brand-primary"/>
                                 {{ $tag->name }}
                             </label>
                         @endforeach
@@ -109,21 +119,22 @@
             <div class="flex-1">
                 <div class="p-8">
                     @php
-                        $hasActiveFilters = $query || !empty($selectedLanguages) || collect($selectedTagsByType)->flatten()->isNotEmpty();
+                        $hasActiveFilters = $query || !empty($selectedLanguages) || !empty($selectedTroveTypes) || collect($selectedTagsByType)->flatten()->isNotEmpty();
                     @endphp
                     @if($searchUnavailable)
-                        {{ t("Search is temporarily unavailable. Please try again later.") }}
-                    @elseif($totalResourcesAndCollections === 0)
+                        {{ t("Search is temporarily unavailable. Showing all resources and collections by date.") }}
+                    @endif
+                    @if($totalHits === 0)
                         @if($hasActiveFilters)
                             {{ t("No resources or collections match your search or filters.") }}
                         @else
                             {{ t("No resources or collections have been added yet.") }}
                         @endif
                     @else
-                        {{ t("Showing ") . $this->startOfPage . ' - ' . $this->endOfPage . ' ' . t("out of") . ' ' . $totalResourcesAndCollections . t(" resources and collections") }}
+                        {{ t("Showing ") . $startOfPage . ' - ' . $endOfPage . ' ' . t("out of") . ' ' . $totalHits . t(" resources and collections") }}
                     @endif
                     @if($hasActiveFilters)
-                        <button wire:click="clearFilters" class="text-gray-500 hover:text-gray-700 underline text-sm">
+                        <button type="button" wire:click="clearFilters" class="text-gray-500 hover:text-gray-700 underline text-sm">
                             {{ t("Clear Filters") }}
                         </button>
                     @endif
@@ -131,7 +142,7 @@
 
                 <div id="Items-content" class="p-8 rounded-lg">
                     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                        @foreach ($this->renderedItems as $item)
+                        @foreach ($items as $item)
                             {{-- display:contents keeps the cards as effective grid children --}}
                             <div wire:key="{{ $item['type'] }}-{{ $item['id'] }}" class="contents">
                                 @if($item['type'] === 'resource')
@@ -144,39 +155,37 @@
                     </div>
                 </div>
 
-
-                @if($pageCount > 1)
+                @if($totalPages > 1)
                 <div class="max-w-6xl mx-auto my-5">
-                        <nav class="rounded-md shadow-xs flex w-full justify-end" aria-label="Pagination" x-data="{currentPage: $wire.entangle('currentPage')}">
+                    <nav class="rounded-md shadow-xs flex w-full justify-end" aria-label="{{ t('Pagination') }}">
+                        <button
+                            type="button"
+                            class="py-2 px-4 rounded-full {{ $page === 1 ? 'bg-gray-50' : 'bg-white hover:text-brand-secondary' }}"
+                            wire:click="goToPage({{ $page - 1 }})"
+                            @disabled($page === 1)
+                        >
+                            {{ t('Previous') }}
+                        </button>
 
+                        @foreach($pageWindow as $pageNumber)
                             <button
-                                :class="currentPage===1 ? 'bg-gray-50' : 'bg-white hover:text-brand-secondary'"
-                                class="py-2 px-4 rounded-full"
-                                x-on:click="$wire.loadPage(currentPage-1); window.scrollTo({ top: 0, behavior: 'smooth' });"
-                                {{ $currentPage === 1 ? 'disabled="disabled"' : '' }}
-                            >
-                                Previous
-                            </button>
+                                type="button"
+                                class="py-2 px-4 rounded-full {{ $page === $pageNumber ? 'text-white bg-brand-primary' : 'text-black hover:text-brand-primary' }}"
+                                wire:click="goToPage({{ $pageNumber }})"
+                                @if($page === $pageNumber) aria-current="page" @endif
+                            >{{ $pageNumber }}</button>
+                        @endforeach
 
-                            @for($i=1; $i<=$pageCount; $i++)
-                                <button
-                                    :class="currentPage==={{$i}} ? 'text-white bg-brand-primary' : 'text-black hover:text-brand-primary'"
-                                    class="py-2 px-4 rounded-full"
-
-                                    x-on:click="$wire.loadPage({{$i}}); window.scrollTo({ top: 0, behavior: 'smooth' });"
-                                >{{ $i }}</button>
-                            @endfor
-
-                            <button
-                                :class="currentPage==={{$pageCount}} ? 'bg-gray-50' : 'bg-white hover:text-brand-primary'"
-                                class="py-2 px-4 rounded-full"
-                                x-on:click="$wire.loadPage(currentPage+1); window.scrollTo({ top: 0, behavior: 'smooth' });"
-                                {{ $currentPage === $pageCount ? 'disabled="disabled"' : ''}}
-                            >
-                                Next
-                            </button>
-                        </nav>
-                    </div>
+                        <button
+                            type="button"
+                            class="py-2 px-4 rounded-full {{ $page === $totalPages ? 'bg-gray-50' : 'bg-white hover:text-brand-primary' }}"
+                            wire:click="goToPage({{ $page + 1 }})"
+                            @disabled($page === $totalPages)
+                        >
+                            {{ t('Next') }}
+                        </button>
+                    </nav>
+                </div>
                 @endif
                 </div>
             </div>

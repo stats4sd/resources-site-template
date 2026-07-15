@@ -1,14 +1,13 @@
 <?php
 
 use App\Livewire\CollectionTroves;
-use App\Livewire\SearchBar;
 use App\Livewire\TroveCollections;
 use App\Livewire\TroveRelatedTroves;
 use App\Models\Collection;
 use Livewire\Livewire;
 
 // Smoke: the small single-purpose components embedded in trove/collection views mount and
-// render without error. (These carry no MySQL-only SQL, unlike BrowseAll.)
+// render without error.
 
 beforeEach(fn () => bootPublicSite());
 
@@ -46,8 +45,4 @@ it('mounts TroveRelatedTroves', function () {
 
     Livewire::test(TroveRelatedTroves::class, ['resource' => $trove->fresh()])
         ->assertOk();
-});
-
-it('mounts SearchBar', function () {
-    Livewire::test(SearchBar::class)->assertOk();
 });
