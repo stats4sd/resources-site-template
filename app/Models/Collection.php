@@ -134,8 +134,13 @@ class Collection extends Model implements HasMedia
     {
         $titles = [];
         $descriptions = [];
+        $locales = [];
 
         foreach (config('app.locales') as $locale => $label) {
+            if (trim((string) $this->getTranslation('title', $locale, false)) !== '') {
+                $locales[] = $locale;
+            }
+
             $title = $this->getTranslation('title', $locale);
             $description = $this->getTranslation('description', $locale);
 
@@ -152,11 +157,34 @@ class Collection extends Model implements HasMedia
             }
         }
 
+        // Aggregated from published canonical members only. This runs in whatever context
+        // triggered the save — in an admin request PublishedScope self-disables, so the
+        // relation must be constrained explicitly or draft rows would leak into the index.
+        $publishedMembers = $this->troves()
+            ->whereNotNull('published_at')
+            ->whereNull('published_id')
+            ->with('tags')
+            ->get();
+
         return [
+            'id' => $this->id,
             'title' => implode(' ', $titles),
             'description' => implode(' ', $descriptions),
-            'id' => $this->id,
-            'public' => (int) $this->public,
+            'tag_ids' => $publishedMembers
+                ->flatMap(fn (Trove $trove) => $trove->tags->pluck('id'))
+                ->unique()
+                ->map(fn ($tagId) => (int) $tagId)
+                ->values()
+                ->all(),
+            'trove_type_ids' => $publishedMembers
+                ->pluck('trove_type_id')
+                ->filter()
+                ->unique()
+                ->map(fn ($troveTypeId) => (int) $troveTypeId)
+                ->values()
+                ->all(),
+            'locales' => $locales,
+            'sort_date' => $this->created_at?->getTimestamp(),
         ];
     }
 }
