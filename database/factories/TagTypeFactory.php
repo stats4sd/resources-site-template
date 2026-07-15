@@ -28,7 +28,7 @@ class TagTypeFactory extends Factory
         ];
     }
 
-    /** Pin the slug (e.g. 'themes' / 'topics' for themeAndTopicTags tests). */
+    /** Pin the slug. */
     public function slug(string $slug): static
     {
         return $this->state(fn () => ['slug' => $slug]);

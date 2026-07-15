@@ -430,13 +430,6 @@ class Trove extends Model implements HasMedia
         ];
     }
 
-    public function themeAndTopicTags(): MorphToMany
-    {
-        return $this->tags()->whereHas('tagType', function ($query) {
-            $query->whereIn('slug', ['themes', 'topics']);
-        });
-    }
-
     public function downloadAllFilesAsZip()
     {
         // Get the current app locale
