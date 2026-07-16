@@ -14,7 +14,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: mbstring, pdo_sqlite, sqlite3, gd, zip
           coverage: none
 
@@ -43,9 +43,9 @@ jobs:
           - 7700:7700
         options: >-
           --health-cmd "wget -qO- http://localhost:7700/health || exit 1"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
+          --health-interval 10s
+          --health-timeout 8s
+          --health-retries 15
     steps:
       - uses: actions/checkout@v4
 
