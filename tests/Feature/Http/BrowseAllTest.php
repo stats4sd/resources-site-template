@@ -263,3 +263,28 @@ it('clears only the query with clearSearch', function () {
         ->assertSet('query', null)
         ->assertSet('selectedLanguages', ['en']);
 });
+
+// A 0-result count is only a prediction under the CURRENT selection; OR-within-type/dimension
+// semantics mean ticking another option in the same group can still be a meaningful action, so
+// zero-count filter checkboxes stay muted but clickable rather than disabled.
+it('never disables a filter checkbox even when its facet count is zero', function () {
+    config(['branding.locales' => ['en' => 'English', 'fr' => 'French']]);
+    $tagType = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($tagType)->create();
+    $troveType = TroveType::factory()->create();
+
+    bindFakeSearch(fn () => new LibrarySearchResult(
+        hits: [],
+        totalHits: 0,
+        totalPages: 0,
+        facets: new LibraryFacets(
+            tagCounts: [$tag->id => 0],
+            troveTypeCounts: [$troveType->id => 0],
+            localeCounts: ['en' => 0, 'fr' => 0],
+        ),
+    ));
+
+    $html = Livewire::test(BrowseAll::class)->html();
+
+    expect($html)->not->toContain('disabled');
+});

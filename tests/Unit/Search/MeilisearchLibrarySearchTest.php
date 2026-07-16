@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Collection;
+use App\Models\Tag;
+use App\Models\TagType;
 use App\Models\Trove;
 use App\Services\Search\LibrarySearchRequest;
 use App\Services\Search\MeilisearchLibrarySearch;
@@ -45,6 +47,53 @@ function mockMeilisearchClient(array &$captured, array $response): Client
 function emptyFederatedResponse(): array
 {
     return ['hits' => [], 'estimatedTotalHits' => 0];
+}
+
+/**
+ * Mock the client for a search that also triggers the disjunctive-facet recompute: the
+ * first multiSearch() call is federated (main request), the second is a plain batched
+ * call (no federation) for the recompute queries.
+ */
+function mockMeilisearchClientWithRecompute(
+    array &$capturedFederated,
+    array $federatedResponse,
+    array &$capturedRecompute,
+    array $recomputeResponse,
+): Client {
+    $client = Mockery::mock(Client::class);
+
+    $client->shouldReceive('multiSearch')
+        ->once()
+        ->withArgs(function (array $queries, ?MultiSearchFederation $federation = null) use (&$capturedFederated) {
+            if ($federation === null) {
+                return false;
+            }
+
+            $capturedFederated = [
+                'queries' => array_map(fn (SearchQuery $query) => $query->toArray(), $queries),
+                'federation' => $federation->toArray(),
+            ];
+
+            return true;
+        })
+        ->andReturn($federatedResponse);
+
+    $client->shouldReceive('multiSearch')
+        ->once()
+        ->withArgs(function (array $queries, ?MultiSearchFederation $federation = null) use (&$capturedRecompute) {
+            if ($federation !== null) {
+                return false;
+            }
+
+            $capturedRecompute = [
+                'queries' => array_map(fn (SearchQuery $query) => $query->toArray(), $queries),
+            ];
+
+            return true;
+        })
+        ->andReturn($recomputeResponse);
+
+    return $client;
 }
 
 it('sends one federated request carrying both index queries, filters, pagination and facets', function () {
@@ -155,4 +204,155 @@ it('wraps any client failure in a SearchUnavailableException', function () {
 
     expect(fn () => $search->search(new LibrarySearchRequest(query: 'gender')))
         ->toThrow(SearchUnavailableException::class);
+});
+
+it('recomputes a selected tag type\'s own counts with only that type\'s filter removed, batched into one extra request', function () {
+    $selectedType = TagType::factory()->create();
+    $otherType = TagType::factory()->create();
+    $tagA = Tag::factory()->ofType($selectedType)->create();
+    $tagB = Tag::factory()->ofType($selectedType)->create();
+    $otherTag = Tag::factory()->ofType($otherType)->create();
+
+    $federatedResponse = [
+        'hits' => [],
+        'estimatedTotalHits' => 0,
+        'facetDistribution' => [
+            'tag_ids' => [(string) $tagA->id => 0, (string) $otherTag->id => 4],
+            'trove_type_ids' => [],
+            'locales' => [],
+        ],
+    ];
+
+    $recomputeResponse = [
+        'results' => [
+            ['facetDistribution' => ['tag_ids' => [(string) $tagA->id => 2, (string) $tagB->id => 5]]],
+            ['facetDistribution' => ['tag_ids' => [(string) $tagA->id => 1]]],
+        ],
+    ];
+
+    $capturedFederated = [];
+    $capturedRecompute = [];
+    $client = mockMeilisearchClientWithRecompute($capturedFederated, $federatedResponse, $capturedRecompute, $recomputeResponse);
+
+    $result = (new MeilisearchLibrarySearch($client))->search(new LibrarySearchRequest(
+        tagIdsByType: [$selectedType->id => [$tagA->id]],
+    ));
+
+    expect($capturedRecompute['queries'])->toHaveCount(2)
+        ->and($capturedRecompute['queries'][0]['indexUid'])->toBe(troveIndexUid())
+        ->and($capturedRecompute['queries'][0]['limit'])->toBe(0)
+        ->and($capturedRecompute['queries'][0]['facets'])->toBe(['tag_ids'])
+        ->and($capturedRecompute['queries'][0])->not->toHaveKey('filter')
+        ->and($capturedRecompute['queries'][1]['indexUid'])->toBe(collectionIndexUid());
+
+    $tagCounts = $result->facets->tagCounts;
+    ksort($tagCounts);
+
+    expect($tagCounts)->toBe(collect([
+        $tagA->id => 3,
+        $tagB->id => 5,
+        $otherTag->id => 4,
+    ])->sortKeys()->all());
+});
+
+it('recomputes trove type counts with the trove-type filter removed when a type is selected', function () {
+    $federatedResponse = [
+        'hits' => [],
+        'estimatedTotalHits' => 0,
+        'facetDistribution' => [
+            'tag_ids' => [],
+            'trove_type_ids' => ['4' => 0],
+            'locales' => [],
+        ],
+    ];
+
+    $recomputeResponse = [
+        'results' => [
+            ['facetDistribution' => ['trove_type_ids' => ['4' => 3, '9' => 2]]],
+            ['facetDistribution' => ['trove_type_ids' => ['4' => 1]]],
+        ],
+    ];
+
+    $capturedFederated = [];
+    $capturedRecompute = [];
+    $client = mockMeilisearchClientWithRecompute($capturedFederated, $federatedResponse, $capturedRecompute, $recomputeResponse);
+
+    $result = (new MeilisearchLibrarySearch($client))->search(new LibrarySearchRequest(
+        troveTypeIds: [4],
+    ));
+
+    expect($capturedRecompute['queries'])->toHaveCount(2)
+        ->and($capturedRecompute['queries'][0]['facets'])->toBe(['trove_type_ids'])
+        ->and($capturedRecompute['queries'][0])->not->toHaveKey('filter')
+        ->and($result->facets->troveTypeCounts)->toBe([4 => 4, 9 => 2]);
+});
+
+it('recomputes locale counts with the locale filter removed when a language is selected', function () {
+    $federatedResponse = [
+        'hits' => [],
+        'estimatedTotalHits' => 0,
+        'facetDistribution' => [
+            'tag_ids' => [],
+            'trove_type_ids' => [],
+            'locales' => ['en' => 0],
+        ],
+    ];
+
+    $recomputeResponse = [
+        'results' => [
+            ['facetDistribution' => ['locales' => ['en' => 3, 'fr' => 1]]],
+            ['facetDistribution' => ['locales' => ['en' => 2]]],
+        ],
+    ];
+
+    $capturedFederated = [];
+    $capturedRecompute = [];
+    $client = mockMeilisearchClientWithRecompute($capturedFederated, $federatedResponse, $capturedRecompute, $recomputeResponse);
+
+    $result = (new MeilisearchLibrarySearch($client))->search(new LibrarySearchRequest(
+        locales: ['en'],
+    ));
+
+    expect($capturedRecompute['queries'])->toHaveCount(2)
+        ->and($capturedRecompute['queries'][0]['facets'])->toBe(['locales'])
+        ->and($capturedRecompute['queries'][0])->not->toHaveKey('filter')
+        ->and($result->facets->localeCounts)->toBe(['en' => 5, 'fr' => 1]);
+});
+
+it('batches every dimension needing recompute into a single extra request and keeps unselected-dimension counts untouched', function () {
+    $selectedType = TagType::factory()->create();
+    $tagA = Tag::factory()->ofType($selectedType)->create();
+
+    $federatedResponse = [
+        'hits' => [],
+        'estimatedTotalHits' => 0,
+        'facetDistribution' => [
+            'tag_ids' => [(string) $tagA->id => 0],
+            'trove_type_ids' => ['4' => 0],
+            'locales' => ['en' => 9],
+        ],
+    ];
+
+    $recomputeResponse = [
+        'results' => [
+            ['facetDistribution' => ['tag_ids' => [(string) $tagA->id => 2]]],
+            ['facetDistribution' => ['tag_ids' => [(string) $tagA->id => 1]]],
+            ['facetDistribution' => ['trove_type_ids' => ['4' => 5]]],
+            ['facetDistribution' => ['trove_type_ids' => ['4' => 1]]],
+        ],
+    ];
+
+    $capturedFederated = [];
+    $capturedRecompute = [];
+    $client = mockMeilisearchClientWithRecompute($capturedFederated, $federatedResponse, $capturedRecompute, $recomputeResponse);
+
+    $result = (new MeilisearchLibrarySearch($client))->search(new LibrarySearchRequest(
+        tagIdsByType: [$selectedType->id => [$tagA->id]],
+        troveTypeIds: [4],
+    ));
+
+    expect($capturedRecompute['queries'])->toHaveCount(4)
+        ->and($result->facets->tagCounts)->toBe([$tagA->id => 3])
+        ->and($result->facets->troveTypeCounts)->toBe([4 => 6])
+        ->and($result->facets->localeCounts)->toBe(['en' => 9]);
 });

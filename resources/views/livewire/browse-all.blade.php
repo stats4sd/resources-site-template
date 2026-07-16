@@ -86,7 +86,7 @@
                                 $localeMuted = $facetsAvailable && $localeCount === 0 && !$localeSelected;
                             @endphp
                             <label class="flex items-center {{ $localeMuted ? 'text-gray-400' : '' }}">
-                                <input type="checkbox" wire:model.live="selectedLanguages" value="{{ $code }}" class="mr-2 accent-brand-primary" @disabled($localeMuted)/>
+                                <input type="checkbox" wire:model.live="selectedLanguages" value="{{ $code }}" class="mr-2 accent-brand-primary"/>
                                 <span class="flex-1">{{ $label }}</span>
                                 @if($facetsAvailable)
                                     <span class="ml-2 text-xs {{ $localeMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $localeCount }}</span>
@@ -118,8 +118,7 @@
                                 <input type="checkbox"
                                     wire:model.live="selectedTroveTypes"
                                     value="{{ $filterTroveType->id }}"
-                                    class="mr-2 accent-brand-primary"
-                                    @disabled($troveTypeMuted)/>
+                                    class="mr-2 accent-brand-primary"/>
                                 <span class="flex-1">{{ $filterTroveType->label }}</span>
                                 @if($facetsAvailable)
                                     <span class="ml-2 text-xs {{ $troveTypeMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $troveTypeCount }}</span>
@@ -151,8 +150,7 @@
                                 <input type="checkbox"
                                     wire:model.live="selectedTagsByType.{{ $filterTagType->id }}"
                                     value="{{ $tag->id }}"
-                                    class="mr-2 accent-brand-primary"
-                                    @disabled($tagMuted)/>
+                                    class="mr-2 accent-brand-primary"/>
                                 <span class="flex-1">{{ $tag->name }}</span>
                                 @if($facetsAvailable)
                                     <span class="ml-2 text-xs {{ $tagMuted ? 'text-gray-400' : 'text-gray-500' }}">{{ $tagCount }}</span>
