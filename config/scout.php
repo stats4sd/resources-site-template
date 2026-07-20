@@ -138,11 +138,17 @@ return [
         'key' => env('MEILISEARCH_KEY'),
         'index-settings' => [
             Trove::class => [
+                'filterableAttributes' => ['tag_ids', 'trove_type_ids', 'locales'],
+                'sortableAttributes' => ['sort_date'],
+                'searchableAttributes' => ['title', 'description', 'tag_names'],
                 'pagination' => [
                     'maxTotalHits' => 1000,
                 ],
             ],
             Collection::class => [
+                'filterableAttributes' => ['tag_ids', 'trove_type_ids', 'locales'],
+                'sortableAttributes' => ['sort_date'],
+                'searchableAttributes' => ['title', 'description'],
                 'pagination' => [
                     'maxTotalHits' => 1000,
                 ],

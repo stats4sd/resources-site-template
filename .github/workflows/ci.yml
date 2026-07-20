@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    name: Unit & Feature (SQLite)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, gd, zip
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run Unit and Feature suites
+        run: php artisan test --testsuite=Unit,Feature
+
+  integration:
+    name: Integration (real Meilisearch)
+    runs-on: ubuntu-latest
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:v1.11
+        env:
+          MEILI_MASTER_KEY: ciMasterKey
+          MEILI_NO_ANALYTICS: true
+        ports:
+          - 7700:7700
+        options: >-
+          --health-cmd "wget -qO- http://127.0.0.1:7700/health || exit 1"
+          --health-interval 10s
+          --health-timeout 8s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, sqlite3, gd, zip
+          coverage: none
+
+      - name: Copy .env
+        run: cp .env.example .env
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Run the Meilisearch integration suite
+        env:
+          MEILISEARCH_INTEGRATION: '1'
+          MEILISEARCH_HOST: http://127.0.0.1:7700
+          MEILISEARCH_KEY: ciMasterKey
+        run: php artisan test --testsuite=Integration

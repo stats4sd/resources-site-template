@@ -34,4 +34,17 @@ Search is powered by Meilisearch. The `SCOUT_DRIVER` config defaults to `null` (
 To run Meilisearch locally:
 
 1. Install Meilisearch - instructions [here](https://www.meilisearch.com/docs/learn/getting_started/installation).
-2. Run `./meilisearch --master-key="aSampleMasterKey"` - keep this running in a separate terminal window.
+2. Run `meilisearch --master-key="aSampleMasterKey"` - keep this running in a separate terminal window.
+3. In your `.env`, uncomment/set `SCOUT_DRIVER=meilisearch` and check `MEILISEARCH_HOST`/`MEILISEARCH_KEY` match the instance above (`MEILISEARCH_KEY` must match the `--master-key` you started Meilisearch with).
+4. `SCOUT_QUEUE=true` by default, so index updates are queued - make sure a queue worker is running (`php artisan queue:work` or `php artisan queue:listen`), since `QUEUE_CONNECTION=database`.
+5. Push the index settings (filterable/sortable/searchable attributes, defined per-model in `config/scout.php`) to Meilisearch, then import existing records:
+
+```
+php artisan scout:sync-index-settings
+php artisan scout:import "App\Models\Trove"
+php artisan scout:import "App\Models\Collection"
+```
+
+Re-run both sync-index-settings and the import commands whenever you change a model's `toSearchableArray()` or the `index-settings` block in `config/scout.php`.
+
+**In production:** Meilisearch is required for the full ranked/faceted browse experience — without it (`SCOUT_DRIVER` unset/`null`, or the engine unreachable) `BrowseAll` degrades to an unranked, date-ordered database listing with a "search unavailable" notice; filters still work, but there's no relevance ranking, typo tolerance or facet counts. On first deploy, and again after any schema/index change, run `scout:sync-index-settings` then `scout:import` for both `App\Models\Trove` and `App\Models\Collection`. Set `SCOUT_QUEUE=true` (queues index updates instead of running them synchronously in the request) and keep a queue worker running (`php artisan queue:work`). The Laravel scheduler must also be running (cron calling `php artisan schedule:run` every minute, or `schedule:work` under Supervisor) — it drives a nightly `scout:import` reconciliation for both models (`app/Console/Kernel.php`) that repairs any index drift left by a request where the engine was briefly unreachable.

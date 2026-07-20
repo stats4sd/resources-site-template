@@ -35,7 +35,7 @@ uses(
     // The array cache driver persists spatie's role/permission cache across tests in the
     // same process; forget it so each test resolves roles against its own migrated DB state.
     app(PermissionRegistrar::class)->forgetCachedPermissions();
-})->in('Feature', 'Unit');
+})->in('Feature', 'Unit', 'Integration');
 
 /*
 |--------------------------------------------------------------------------

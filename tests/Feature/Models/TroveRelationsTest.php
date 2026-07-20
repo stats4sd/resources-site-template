@@ -1,8 +1,6 @@
 <?php
 
 use App\Models\Collection;
-use App\Models\Tag;
-use App\Models\TagType;
 use App\Models\Trove;
 
 it('relatedTroves returns troves sharing a collection, excluding itself', function () {
@@ -17,25 +15,6 @@ it('relatedTroves returns troves sharing a collection, excluding itself', functi
     expect($related->pluck('id')->sort()->values()->all())
         ->toBe(collect([$t2->id, $t3->id])->sort()->values()->all())
         ->and($related->pluck('id'))->not->toContain($t1->id);
-});
-
-it('themeAndTopicTags filters to the themes and topics tag types only', function () {
-    $themes = TagType::factory()->slug('themes')->create();
-    $topics = TagType::factory()->slug('topics')->create();
-    $other = TagType::factory()->slug('locations')->create();
-
-    $themeTag = Tag::factory()->ofType($themes)->create();
-    $topicTag = Tag::factory()->ofType($topics)->create();
-    $otherTag = Tag::factory()->ofType($other)->create();
-
-    $trove = publishedTrove();
-    $trove->tags()->attach([$themeTag->id, $topicTag->id, $otherTag->id]);
-
-    $ids = $trove->themeAndTopicTags()->pluck('tags.id');
-
-    expect($ids)->toContain($themeTag->id)
-        ->and($ids)->toContain($topicTag->id)
-        ->and($ids)->not->toContain($otherTag->id);
 });
 
 it('draft() and publishedVersion() ignore PublishedScope', function () {

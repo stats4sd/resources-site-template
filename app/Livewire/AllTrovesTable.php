@@ -2,36 +2,35 @@
 
 namespace App\Livewire;
 
+use App\Filament\Resources\CollectionResource;
+use App\Filament\Resources\TroveResource;
 use App\Models\Trove;
-use Livewire\Component;
-use Filament\Tables\Table;
-use Filament\Facades\Filament;
 use Filament\Actions\Action;
-use Livewire\Attributes\Reactive;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Actions\BulkAction;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Notifications\Notification;
-use Filament\Tables\Enums\FiltersLayout;
-use App\Filament\Resources\TroveResource;
-use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Resources\CollectionResource;
+use Filament\Facades\Filament;
 use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Support\Concerns\EvaluatesClosures;
-use Filament\Tables\Concerns\InteractsWithTable;
-use LaraZeus\SpatieTranslatable\SpatieTranslatableContentDriver;
-use Filament\Support\Contracts\TranslatableContentDriver;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Support\Concerns\EvaluatesClosures;
+use Filament\Support\Contracts\TranslatableContentDriver;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use LaraZeus\SpatieTranslatable\SpatieTranslatableContentDriver;
+use Livewire\Attributes\Reactive;
+use Livewire\Component;
 
-class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
+class AllTrovesTable extends Component implements HasActions, HasForms, HasTable
 {
-    use InteractsWithTable;
-    use InteractsWithForms;
-    use InteractsWithActions;
     use EvaluatesClosures;
-
+    use InteractsWithActions;
+    use InteractsWithForms;
     // InteractsWithRecord is kept only for the $record property + getRecord()/hasRecord()
     // (the pinned Collection). Its action-default overrides are page-context (they resolve to
     // that Collection or call parent::) and are wrong for per-row table actions on Troves —
@@ -43,6 +42,8 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
         InteractsWithActions::getDefaultActionRecordTitle insteadof InteractsWithRecord;
         InteractsWithActions::getDefaultActionSuccessRedirectUrl insteadof InteractsWithRecord;
     }
+
+    use InteractsWithTable;
 
     protected static string $resource = CollectionResource::class;
 
@@ -80,15 +81,15 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
             ->headerActions([
                 Action::make('hide_all_troves')
                     ->label('Show Troves in Collection')
-                    ->action(fn(Component $livewire) => $livewire->dispatch('hideAllTroves')),
+                    ->action(fn (Component $livewire) => $livewire->dispatch('hideAllTroves')),
             ])
-            ->query(fn(): Builder => Trove::query()->workingVersions())
+            ->query(fn (): Builder => Trove::query()->workingVersions())
             ->heading('All Troves')
             ->description('Select Troves to add to this Collection')
             ->columns(TroveResource::getTableColumns())
             ->filters(TroveResource::getTableFilters())
-            ->filtersTriggerAction(fn($action) => $action->button()->label('Filters'))
-            ->filtersLayout(fn() => FiltersLayout::AboveContentCollapsible)
+            ->filtersTriggerAction(fn ($action) => $action->button()->label('Filters'))
+            ->filtersLayout(fn () => FiltersLayout::AboveContentCollapsible)
             ->deferFilters(false)
             ->recordActions([
 
@@ -96,10 +97,11 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
                     ->label('Add Trove to Collection')
                     ->color('success')
                     ->icon('heroicon-o-plus')
-                    ->visible(fn(Trove $record) => !$record->collections->contains($this->getRecord()))
+                    ->visible(fn (Trove $record) => ! $record->collections->contains($this->getRecord()))
                     ->deselectRecordsAfterCompletion()
                     ->action(function (Trove $record) {
                         $this->getRecord()->troves()->attach($record);
+                        $this->getRecord()->searchable();
                         Notification::make()
                             ->title('Trove Added Successfully')
                             ->success()
@@ -110,10 +112,11 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
                     ->icon('heroicon-o-minus')
                     ->color('danger')
                     ->label('Remove Trove from Collection')
-                    ->visible(fn(Trove $record) => $record->collections->contains($this->getRecord()))
+                    ->visible(fn (Trove $record) => $record->collections->contains($this->getRecord()))
                     ->deselectRecordsAfterCompletion()
                     ->action(function (Trove $record) {
                         $this->getRecord()->troves()->detach($record);
+                        $this->getRecord()->searchable();
                         Notification::make()
                             ->title('Trove Removed Successfully')
                             ->success()
@@ -125,18 +128,21 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
                     ->icon('heroicon-o-eye')
                     ->url(function (Trove $record) {
                         return $record->is_published
-                            ? url('/resources/' . $record->slug)
-                            : url('/resources/preview/' . $record->slug);
+                            ? url('/resources/'.$record->slug)
+                            : url('/resources/preview/'.$record->slug);
                     })
                     ->openUrlInNewTab()
                     ->action(null)
                     ->link(),
             ])
-            ->recordUrl(fn(Trove $record) => url('/resources/' . $record->slug))
+            ->recordUrl(fn (Trove $record) => url('/resources/'.$record->slug))
             ->toolbarActions([
                 BulkAction::make('attach')
                     ->label('Add Trove(s) to Collection')
-                    ->action(fn(\Illuminate\Database\Eloquent\Collection $records) => $this->getRecord()->troves()->syncWithoutDetaching($records)),
+                    ->action(function (Collection $records) {
+                        $this->getRecord()->troves()->syncWithoutDetaching($records);
+                        $this->getRecord()->searchable();
+                    }),
             ]);
     }
 
@@ -156,7 +162,7 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
 
     public function getActiveFormsLocale(): ?string
     {
-        if (!in_array($this->activeLocale, $this->getTranslatableLocales())) {
+        if (! in_array($this->activeLocale, $this->getTranslatableLocales())) {
             return null;
         }
 
@@ -175,6 +181,4 @@ class AllTrovesTable extends Component implements HasTable, HasForms, HasActions
     {
         return SpatieTranslatableContentDriver::class;
     }
-
-
 }

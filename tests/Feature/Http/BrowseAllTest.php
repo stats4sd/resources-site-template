@@ -1,149 +1,290 @@
 <?php
 
+use App\Contracts\SearchesLibrary;
 use App\Livewire\BrowseAll;
 use App\Models\Collection;
 use App\Models\Tag;
 use App\Models\TagType;
-use Laravel\Scout\EngineManager;
-use Laravel\Scout\Engines\Engine;
-
-// NOTE: a full render of BrowseAll (Livewire::test / GET /browse-all) is NOT exercised here.
-// Its render path builds the filter tag types with MySQL-only SQL (ISNULL / JSON_EXTRACT /
-// JSON_UNQUOTE) and its search() orders hits with MySQL's FIELD(). Those raise syntax errors
-// on SQLite, so this is a documented SQLite gap (see docs/plans/test-suite-buildout.md).
-// The data-selection logic below runs without the MySQL-only render path.
+use App\Models\TroveType;
+use App\Services\Search\LibraryFacets;
+use App\Services\Search\LibraryHit;
+use App\Services\Search\LibrarySearchRequest;
+use App\Services\Search\LibrarySearchResult;
+use App\Services\Search\SearchUnavailableException;
+use Livewire\Livewire;
 
 beforeEach(fn () => bootPublicSite());
 
-function fakeSearchEngine(Closure $searchResult): void
+class FakeLibrarySearch implements SearchesLibrary
 {
-    $engine = Mockery::mock(Engine::class);
-    $engine->shouldReceive('search')->andReturnUsing($searchResult);
+    /** @var array<int, LibrarySearchRequest> */
+    public array $requests = [];
 
-    $manager = Mockery::mock(EngineManager::class);
-    $manager->shouldReceive('engine')->andReturn($engine);
+    public function __construct(private ?Closure $respond = null) {}
 
-    app()->instance(EngineManager::class, $manager);
+    public function search(LibrarySearchRequest $request): LibrarySearchResult
+    {
+        $this->requests[] = $request;
+
+        if ($this->respond !== null) {
+            return ($this->respond)($request);
+        }
+
+        return new LibrarySearchResult(hits: [], totalHits: 0, totalPages: 0, facets: null);
+    }
 }
 
-it('lists published troves and public collections, excluding the rest', function () {
-    $published = publishedTrove();
-    $unpublished = draftTrove();
-    $publicCollection = Collection::factory()->create();
+function bindFakeSearch(?Closure $respond = null): FakeLibrarySearch
+{
+    $fake = new FakeLibrarySearch($respond);
+    app()->instance(SearchesLibrary::class, $fake);
+
+    return $fake;
+}
+
+it('serves the browse page over HTTP', function () {
+    bindFakeSearch();
+
+    $this->get('/browse-all')->assertOk();
+});
+
+it('maps query, filters and page into the search request', function () {
+    $tagType = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($tagType)->create();
+    $troveType = TroveType::factory()->create();
+    $fake = bindFakeSearch();
+
+    Livewire::test(BrowseAll::class)
+        ->set('query', 'gender')
+        ->set("selectedTagsByType.{$tagType->id}", [(string) $tag->id])
+        ->set('selectedTroveTypes', [(string) $troveType->id])
+        ->set('selectedLanguages', ['fr'])
+        ->set('page', 2);
+
+    $request = end($fake->requests);
+
+    expect($request->query)->toBe('gender')
+        ->and($request->tagIdsByType[$tagType->id])->toBe([$tag->id])
+        ->and($request->troveTypeIds)->toBe([$troveType->id])
+        ->and($request->locales)->toBe(['fr'])
+        ->and($request->page)->toBe(2)
+        ->and($request->perPage)->toBe(24);
+});
+
+it('resets the page whenever the query or a filter changes', function () {
+    bindFakeSearch();
+
+    Livewire::test(BrowseAll::class)
+        ->set('page', 3)
+        ->assertSet('page', 3)
+        ->set('query', 'gender')
+        ->assertSet('page', 1)
+        ->set('page', 5)
+        ->set('selectedLanguages', ['en'])
+        ->assertSet('page', 1);
+});
+
+it('reads its state from the query string', function () {
+    $tagType = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($tagType)->create();
+    $fake = bindFakeSearch();
+
+    Livewire::withQueryParams([
+        'q' => 'gender',
+        'selectedTagsByType' => [$tagType->id => [(string) $tag->id]],
+        'selectedLanguages' => ['fr'],
+        'page' => 2,
+    ])->test(BrowseAll::class);
+
+    $request = $fake->requests[0];
+
+    expect($request->query)->toBe('gender')
+        ->and($request->tagIdsByType[$tagType->id])->toBe([$tag->id])
+        ->and($request->locales)->toBe(['fr'])
+        ->and($request->page)->toBe(2);
+});
+
+it('hydrates the page of hits in hit order', function () {
+    $troveA = publishedTrove();
+    $troveB = publishedTrove();
+    $collection = Collection::factory()->create();
+
+    bindFakeSearch(fn () => new LibrarySearchResult(
+        hits: [
+            new LibraryHit('collection', $collection->id, 0.9),
+            new LibraryHit('trove', $troveB->id, 0.8),
+            new LibraryHit('trove', $troveA->id, 0.7),
+        ],
+        totalHits: 3,
+        totalPages: 1,
+        facets: null,
+    ));
+
+    $items = Livewire::test(BrowseAll::class)->viewData('items');
+
+    expect($items->pluck('id')->all())->toBe([$collection->id, $troveB->id, $troveA->id])
+        ->and($items->pluck('type')->all())->toBe(['collection', 'resource', 'resource']);
+});
+
+it('drops hits whose row has lost public visibility since indexing', function () {
+    $trove = publishedTrove();
     $privateCollection = Collection::factory()->private()->create();
 
-    $component = new BrowseAll;
-    $component->fetchInitialData();
+    bindFakeSearch(fn () => new LibrarySearchResult(
+        hits: [
+            new LibraryHit('collection', $privateCollection->id, 0.9),
+            new LibraryHit('trove', $trove->id, 0.8),
+            new LibraryHit('trove', $trove->id + 999, 0.7),
+        ],
+        totalHits: 3,
+        totalPages: 1,
+        facets: null,
+    ));
 
-    $resourceIds = $component->items->where('type', 'resource')->pluck('id');
-    $collectionIds = $component->items->where('type', 'collection')->pluck('id');
+    $items = Livewire::test(BrowseAll::class)->viewData('items');
 
-    expect($resourceIds)->toContain($published->id)
-        ->and($resourceIds)->not->toContain($unpublished->id)
-        ->and($collectionIds)->toContain($publicCollection->id)
-        ->and($collectionIds)->not->toContain($privateCollection->id);
+    expect($items->pluck('id')->all())->toBe([$trove->id]);
 });
 
-it('merges resources and collections into one paginated item set', function () {
-    publishedTrove();
-    publishedTrove();
-    Collection::factory()->create();
+it('clamps a stale page number to the last available page', function () {
+    $fake = bindFakeSearch(fn () => new LibrarySearchResult(hits: [], totalHits: 30, totalPages: 2, facets: null));
 
-    $component = new BrowseAll;
-    $component->fetchInitialData();
+    Livewire::withQueryParams(['page' => 9])->test(BrowseAll::class)
+        ->assertSet('page', 2);
 
-    expect($component->totalResourcesAndCollections)->toBe(3)
-        ->and($component->items)->toHaveCount(3)
-        ->and($component->renderedItems)->toHaveCount(3); // all on page 1 (perPage 100)
+    expect(end($fake->requests)->page)->toBe(2);
 });
 
-it('returns no results when a non-empty search yields zero hits', function () {
-    publishedTrove();
-    publishedTrove();
-    Collection::factory()->create();
+it('shows the empty-library message when nothing is published', function () {
+    bindFakeSearch();
 
-    fakeSearchEngine(fn () => ['hits' => []]);
-
-    $component = new BrowseAll;
-    $component->fetchInitialData();
-    $component->query = 'a-term-that-matches-nothing';
-    $component->search();
-
-    expect($component->items)->toHaveCount(0)
-        ->and($component->totalResourcesAndCollections)->toBe(0)
-        ->and($component->searchUnavailable)->toBeFalse();
+    Livewire::test(BrowseAll::class)
+        ->assertSee('No resources or collections have been added yet.');
 });
 
-it('flags search as unavailable and returns no results when the engine throws', function () {
-    publishedTrove();
+it('shows the no-matches message when active filters return nothing', function () {
+    bindFakeSearch();
 
-    fakeSearchEngine(function () {
-        throw new Exception('Meilisearch is down');
+    Livewire::test(BrowseAll::class)
+        ->set('query', 'matches-nothing')
+        ->assertSee('No resources or collections match your search or filters.');
+});
+
+it('falls back to the database listing with a notice when search is unavailable', function () {
+    $trove = publishedTrove();
+
+    bindFakeSearch(function () {
+        throw new SearchUnavailableException('engine down');
     });
 
-    $component = new BrowseAll;
-    $component->fetchInitialData();
-    $component->query = 'anything';
-    $component->search();
+    $component = Livewire::test(BrowseAll::class)
+        ->assertSet('searchUnavailable', true)
+        ->assertSee('Search is temporarily unavailable');
 
-    expect($component->searchUnavailable)->toBeTrue()
-        ->and($component->items)->toHaveCount(0);
+    expect($component->viewData('items')->pluck('id')->all())->toBe([$trove->id]);
+});
+
+it('passes facet counts to the view', function () {
+    bindFakeSearch(fn () => new LibrarySearchResult(
+        hits: [],
+        totalHits: 0,
+        totalPages: 0,
+        facets: new LibraryFacets(tagCounts: [5 => 2], troveTypeCounts: [3 => 1], localeCounts: ['en' => 4]),
+    ));
+
+    $component = Livewire::test(BrowseAll::class);
+
+    expect($component->viewData('facetsAvailable'))->toBeTrue()
+        ->and($component->viewData('tagCounts'))->toBe([5 => 2])
+        ->and($component->viewData('troveTypeCounts'))->toBe([3 => 1])
+        ->and($component->viewData('localeCounts'))->toBe(['en' => 4]);
+});
+
+it('passes empty facet maps to the view when facets are unavailable', function () {
+    bindFakeSearch();
+
+    $component = Livewire::test(BrowseAll::class);
+
+    expect($component->viewData('facetsAvailable'))->toBeFalse()
+        ->and($component->viewData('tagCounts'))->toBe([])
+        ->and($component->viewData('troveTypeCounts'))->toBe([])
+        ->and($component->viewData('localeCounts'))->toBe([]);
 });
 
 // The tag-filter checkboxes bind to selectedTagsByType.{tagTypeId}. Livewire's client only
 // treats a checkbox as part of a group when the bound value is already an array — an undefined
-// key makes a click set the whole key to boolean true (checking every box in the group) and
-// then crash search()'s whereIn. Each filterable tag type's key must therefore exist as an
-// array from mount onwards, and survive clearFilters().
+// key makes a click set the whole key to boolean true (checking every box in the group). Each
+// filterable tag type's key must therefore exist as an array from mount onwards, and survive
+// clearFilters(). See docs/plans/fix-tag-filter-checkbox-binding.md.
 it('initialises an empty tag filter array per filterable tag type on mount', function () {
     $filterable = TagType::factory()->shownInFilter()->create();
     TagType::factory()->create();
+    bindFakeSearch();
 
-    $component = new BrowseAll;
-    $component->mount();
+    Livewire::test(BrowseAll::class)
+        ->assertSet('selectedTagsByType', [$filterable->id => []]);
+});
 
-    expect($component->selectedTagsByType)->toBe([$filterable->id => []]);
+it('keeps query-string tag selections while initialising the other tag filter arrays', function () {
+    $selected = TagType::factory()->shownInFilter()->create();
+    $other = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($selected)->create();
+    bindFakeSearch();
+
+    Livewire::withQueryParams(['selectedTagsByType' => [$selected->id => [(string) $tag->id]]])
+        ->test(BrowseAll::class)
+        ->assertSet('selectedTagsByType', [$selected->id => [$tag->id], $other->id => []]);
 });
 
 it('re-initialises the tag filter arrays when filters are cleared', function () {
     $filterable = TagType::factory()->shownInFilter()->create();
     $tag = Tag::factory()->ofType($filterable)->create();
+    bindFakeSearch();
 
-    $component = new BrowseAll;
-    $component->mount();
-    $component->selectedTagsByType[$filterable->id] = [$tag->id];
-
-    $component->clearFilters();
-
-    expect($component->selectedTagsByType)->toBe([$filterable->id => []]);
+    Livewire::test(BrowseAll::class)
+        ->set("selectedTagsByType.{$filterable->id}", [(string) $tag->id])
+        ->set('query', 'gender')
+        ->set('selectedLanguages', ['en'])
+        ->call('clearFilters')
+        ->assertSet('selectedTagsByType', [$filterable->id => []])
+        ->assertSet('query', null)
+        ->assertSet('selectedLanguages', [])
+        ->assertSet('selectedTroveTypes', [])
+        ->assertSet('page', 1);
 });
 
-it('filters resources to those tagged with the selected tags', function () {
-    $filterable = TagType::factory()->shownInFilter()->create();
-    $tag = Tag::factory()->ofType($filterable)->create();
-    $tagged = publishedTrove();
-    $tagged->tags()->attach($tag);
-    publishedTrove();
+it('clears only the query with clearSearch', function () {
+    bindFakeSearch();
 
-    $component = new BrowseAll;
-    $component->mount();
-    $component->selectedTagsByType[$filterable->id] = [$tag->id];
-    $component->search();
-
-    expect($component->items->where('type', 'resource')->pluck('id')->all())->toBe([$tagged->id]);
+    Livewire::test(BrowseAll::class)
+        ->set('query', 'gender')
+        ->set('selectedLanguages', ['en'])
+        ->call('clearSearch')
+        ->assertSet('query', null)
+        ->assertSet('selectedLanguages', ['en']);
 });
 
-it('clamps loadPage to the valid page range', function () {
-    publishedTrove();
-    publishedTrove();
+// A 0-result count is only a prediction under the CURRENT selection; OR-within-type/dimension
+// semantics mean ticking another option in the same group can still be a meaningful action, so
+// zero-count filter checkboxes stay muted but clickable rather than disabled.
+it('never disables a filter checkbox even when its facet count is zero', function () {
+    config(['branding.locales' => ['en' => 'English', 'fr' => 'French']]);
+    $tagType = TagType::factory()->shownInFilter()->create();
+    $tag = Tag::factory()->ofType($tagType)->create();
+    $troveType = TroveType::factory()->create();
 
-    $component = new BrowseAll;
-    $component->perPage = 1;
-    $component->fetchInitialData();
+    bindFakeSearch(fn () => new LibrarySearchResult(
+        hits: [],
+        totalHits: 0,
+        totalPages: 0,
+        facets: new LibraryFacets(
+            tagCounts: [$tag->id => 0],
+            troveTypeCounts: [$troveType->id => 0],
+            localeCounts: ['en' => 0, 'fr' => 0],
+        ),
+    ));
 
-    $component->loadPage(0);
-    expect($component->currentPage)->toBe(1);
+    $html = Livewire::test(BrowseAll::class)->html();
 
-    $component->loadPage(99);
-    expect($component->currentPage)->toBe(2);
+    expect($html)->not->toContain('disabled');
 });

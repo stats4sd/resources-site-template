@@ -381,8 +381,13 @@ class Trove extends Model implements HasMedia
     {
         $titles = [];
         $descriptions = [];
+        $locales = [];
 
         foreach (config('app.locales') as $locale => $label) {
+            if (trim((string) $this->getTranslation('title', $locale, false)) !== '') {
+                $locales[] = $locale;
+            }
+
             $title = $this->getTranslation('title', $locale);
             $description = $this->getTranslation('description', $locale);
 
@@ -399,19 +404,30 @@ class Trove extends Model implements HasMedia
             }
         }
 
+        $tags = $this->tags()->get();
+
+        $tagNames = [];
+
+        foreach ($tags as $tag) {
+            foreach (array_keys(config('app.locales')) as $locale) {
+                $tagName = trim((string) $tag->getTranslation('name', $locale, false));
+
+                if ($tagName !== '' && ! in_array($tagName, $tagNames)) {
+                    $tagNames[] = $tagName;
+                }
+            }
+        }
+
         return [
+            'id' => $this->id,
             'title' => implode(' ', $titles),
             'description' => implode(' ', $descriptions),
-            'is_published' => (int) $this->is_published,
-            'id' => $this->id,
+            'tag_ids' => $tags->pluck('id')->map(fn ($tagId) => (int) $tagId)->values()->all(),
+            'tag_names' => implode(' ', $tagNames),
+            'trove_type_ids' => $this->trove_type_id === null ? [] : [(int) $this->trove_type_id],
+            'locales' => $locales,
+            'sort_date' => $this->published_at?->getTimestamp(),
         ];
-    }
-
-    public function themeAndTopicTags(): MorphToMany
-    {
-        return $this->tags()->whereHas('tagType', function ($query) {
-            $query->whereIn('slug', ['themes', 'topics']);
-        });
     }
 
     public function downloadAllFilesAsZip()

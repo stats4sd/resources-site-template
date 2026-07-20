@@ -16,7 +16,7 @@
 
         <!-- Image -->
         <div class="h-52 bg-cover bg-center mb-4 overflow-y-hidden">
-            <img src="{{ $item['cover_image_thumb'] }}" class="overflow-y-hidden card-img w-full" />
+            <img src="{{ $item['cover_image_thumb'] }}" alt="{{ $item['title'] }}" class="overflow-y-hidden card-img w-full" />
         </div>
      <div class="absolute top-4 left-4 h-12 w-12 resource-card-icon rounded-full text-white text-center py-auto bg-brand-secondary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="white"

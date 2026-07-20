@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-use Spatie\Translatable\HasTranslations;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Observers\TagObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphToMany;
+use Spatie\Translatable\HasTranslations;
 
+#[ObservedBy(TagObserver::class)]
 class Tag extends Model
 {
     use HasFactory;
@@ -32,5 +35,4 @@ class Tag extends Model
     {
         return $this->belongsTo(TagType::class, 'type_id');
     }
-
 }

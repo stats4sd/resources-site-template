@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Tag;
 use App\Models\Trove;
+use App\Models\TroveType;
 
 describe('shouldBeSearchable', function () {
     it('is true only for a published canonical row', function () {
@@ -37,8 +39,8 @@ describe('toSearchableArray', function () {
         // 'Data Analysis' appears twice (en + fr) but is deduped.
         expect($array['title'])->toBe('Data Analysis Análisis')
             ->and($array['description'])->toBe('English desc Spanish desc')
-            ->and($array['is_published'])->toBe(1)
-            ->and($array['id'])->toBe($trove->id);
+            ->and($array['id'])->toBe($trove->id)
+            ->and($array)->not->toHaveKey('is_published');
     });
 
     it('strips HTML from descriptions', function () {
@@ -50,7 +52,55 @@ describe('toSearchableArray', function () {
         expect($trove->toSearchableArray()['description'])->toBe('Hello world');
     });
 
-    it('reports is_published as 0 for an unpublished trove', function () {
-        expect(draftTrove()->toSearchableArray()['is_published'])->toBe(0);
+    it('includes tag ids and flattened multi-locale tag names', function () {
+        config(['app.locales' => ['en' => 'English', 'es' => 'Spanish']]);
+
+        $trove = publishedTrove(['title' => ['en' => 'Tagged']]);
+
+        $gender = Tag::factory()->create(['name' => ['en' => 'Gender', 'es' => 'Género']]);
+        $farming = Tag::factory()->create(['name' => ['en' => 'Farming']]);
+        $trove->tags()->attach([$gender->id, $farming->id]);
+
+        $array = $trove->fresh()->toSearchableArray();
+
+        expect($array['tag_ids'])->toEqualCanonicalizing([$gender->id, $farming->id])
+            ->and($array['tag_names'])->toContain('Gender')
+            ->and($array['tag_names'])->toContain('Género')
+            ->and($array['tag_names'])->toContain('Farming');
+    });
+
+    it('has empty tag attributes when the trove has no tags', function () {
+        $array = publishedTrove()->toSearchableArray();
+
+        expect($array['tag_ids'])->toBe([])
+            ->and($array['tag_names'])->toBe('');
+    });
+
+    it('wraps the trove type id in an array-shaped trove_type_ids attribute', function () {
+        $type = TroveType::factory()->create();
+        $trove = publishedTrove(['trove_type_id' => $type->id]);
+
+        expect($trove->toSearchableArray()['trove_type_ids'])->toBe([$type->id]);
+    });
+
+    it('has an empty trove_type_ids attribute when no type is set', function () {
+        expect(publishedTrove()->toSearchableArray()['trove_type_ids'])->toBe([]);
+    });
+
+    it('lists only locales with a non-empty title translation', function () {
+        config(['app.locales' => ['en' => 'English', 'es' => 'Spanish', 'fr' => 'French']]);
+
+        $trove = publishedTrove([
+            'title' => ['en' => 'Present', 'es' => '', 'fr' => 'Présent'],
+        ]);
+
+        expect($trove->toSearchableArray()['locales'])->toBe(['en', 'fr']);
+    });
+
+    it('exposes published_at as the sort_date timestamp', function () {
+        $trove = publishedTrove(['published_at' => '2026-01-02 03:04:05']);
+
+        expect($trove->toSearchableArray()['sort_date'])
+            ->toBe($trove->published_at->getTimestamp());
     });
 });

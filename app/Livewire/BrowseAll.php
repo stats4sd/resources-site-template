@@ -2,272 +2,291 @@
 
 namespace App\Livewire;
 
+use App\Contracts\SearchesLibrary;
 use App\Models\Collection;
+use App\Models\Tag;
 use App\Models\TagType;
 use App\Models\Trove;
-use App\Traits\UsesCustomSearchOptions;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use App\Models\TroveType;
+use App\Services\Search\DatabaseLibrarySearch;
+use App\Services\Search\LibraryHit;
+use App\Services\Search\LibrarySearchRequest;
+use App\Services\Search\LibrarySearchResult;
+use App\Services\Search\SearchUnavailableException;
 use Illuminate\Support\Collection as SupportCollection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 use Livewire\Component;
-use Throwable;
 
+/**
+ * The public search/browse surface: one SearchesLibrary request per render (text
+ * search, tag/type/language filters, facet counts, cross-index ranking and
+ * pagination), then one page of models hydrated fresh. No catalogue data lives in
+ * Livewire state — public properties are just the current query/filter/page scalars.
+ */
 class BrowseAll extends Component
 {
-    use UsesCustomSearchOptions;
-
+    #[Url(as: 'q')]
     public ?string $query = null;
 
-    public EloquentCollection $resources;
+    #[Url]
+    public array $selectedTagsByType = [];
 
-    public EloquentCollection $collections;
+    #[Url]
+    public array $selectedTroveTypes = [];
 
-    public SupportCollection $items;
-
-    public SupportCollection $renderedItems; // subset of items made with custom pagination
-
-    public int $currentPage = 1;
-
-    public int $pageCount = 1;
-
-    public int $perPage = 100;
-
-    public int $totalResourcesAndCollections = 0;
-
-    public int $renderedResourcesAndCollections = 0;
-
+    #[Url]
     public array $selectedLanguages = [];
 
-    public array $selectedTagsByType = [];
+    #[Url]
+    public int $page = 1;
 
     public bool $searchUnavailable = false;
 
-    protected $listeners = ['queryUpdated' => 'updateResults'];
+    private int $perPage = 24;
 
-    public function mount()
+    public function mount(): void
     {
-        // The set.locale middleware has already resolved and set the app locale for this request.
-        $this->renderedItems = collect();
-
         $this->initialiseTagFilters();
-        $this->fetchInitialData();
     }
 
     /**
-     * Every filterable tag type needs its selectedTagsByType key present as an array before
-     * the first render: the checkboxes bind to selectedTagsByType.{tagTypeId}, and Livewire's
-     * client only treats a checkbox as part of a group when the bound value is already an
-     * array. An undefined key makes a click set the whole key to boolean true — visually
-     * checking every box in the group and crashing search()'s whereIn.
+     * Every filterable tag type needs its selectedTagsByType key present as an array
+     * before the first render: the checkboxes bind to selectedTagsByType.{tagTypeId},
+     * and Livewire's client only treats a checkbox as part of a group when the bound
+     * value is already an array. An undefined key makes a click set the whole key to
+     * boolean true — visually checking every box in the group and breaking the filter.
+     * Selections already present (from the URL) are kept; unknown keys are dropped.
      */
     private function initialiseTagFilters(): void
     {
-        $this->selectedTagsByType = TagType::where('show_in_filter', true)
+        $emptyFilters = $this->emptyTagFilters();
+
+        $currentSelections = array_map(
+            fn ($tagIds) => array_map(intval(...), (array) $tagIds),
+            array_intersect_key($this->selectedTagsByType, $emptyFilters),
+        );
+
+        $this->selectedTagsByType = array_replace($emptyFilters, $currentSelections);
+    }
+
+    /**
+     * @return array<int, array<int, int>>
+     */
+    private function emptyTagFilters(): array
+    {
+        return TagType::where('show_in_filter', true)
             ->pluck('id')
             ->mapWithKeys(fn (int $tagTypeId) => [$tagTypeId => []])
             ->all();
     }
 
-    public function fetchInitialData()
+    public function updated(string $property): void
     {
-        $this->resources = Trove::with(['troveType', 'themeAndTopicTags'])->whereNotNull('published_at')->get();
-        $this->collections = Collection::where('public', 1)->get();
-        $this->mergeItems();
-    }
-
-    public function updateResults($query)
-    {
-        if ($query !== $this->query) {
-            $this->query = $query;
-            $this->search();
-        }
-    }
-
-    public function search()
-    {
-        $this->searchUnavailable = false;
-
-        // Fetch Resources (Trove)
-        $resourceQuery = Trove::query()->whereNotNull('published_at');
-        $resourceHits = [];
-
-        if (!empty($this->query)) {
-            $resourceHits = $this->searchHits(Trove::class);
-            $ids = collect($resourceHits)->pluck('id')->toArray();
-
-            if ($ids) {
-                $resourceQuery->whereIn('id', $ids)
-                    ->orderByRaw('FIELD(id, ' . implode(',', $ids) . ')');
-            } else {
-                // A non-empty query with no hits must return nothing, not the whole library.
-                $resourceQuery->whereRaw('1 = 0');
-            }
+        if ($property === 'page') {
+            return;
         }
 
-        foreach ($this->selectedTagsByType as $tagIds) {
-            if (!empty($tagIds)) {
-                $resourceQuery->whereHas('tags', fn($q) => $q->whereIn('tags.id', $tagIds));
-            }
-        }
-
-        if (!empty($this->selectedLanguages)) {
-            $resourceQuery->whereLocales('title', $this->selectedLanguages);
-        }
-
-        $this->resources = $resourceQuery->get();
-
-        // Fetch Collections
-        $collectionQuery = Collection::query()->where('public', 1);
-        $collectionHits = [];
-
-        if (!empty($this->query)) {
-            $collectionHits = $this->searchHits(Collection::class);
-            $ids = collect($collectionHits)->pluck('id')->toArray();
-
-            if ($ids) {
-                $collectionQuery->whereIn('id', $ids)
-                    ->orderByRaw('FIELD(id, ' . implode(',', $ids) . ')');
-            } else {
-                $collectionQuery->whereRaw('1 = 0');
-            }
-        }
-
-        if (!empty($this->selectedLanguages)) {
-            $collectionQuery->whereLocales('title', $this->selectedLanguages);
-        }
-
-        $this->collections = $collectionQuery->get();
-
-        // Merge with ranking preserved
-        $this->mergeItems($resourceHits, $collectionHits);
+        $this->page = 1;
     }
 
-    /**
-     * Run the Scout query and return its raw hits. A search-engine outage sets the
-     * unavailable flag and yields no hits rather than 500-ing the whole page.
-     *
-     * @param  class-string  $model
-     * @return array<int, array<string, mixed>>
-     */
-    private function searchHits(string $model): array
+    public function goToPage(int $page): void
     {
-        try {
-            return $model::search($this->query, $this->getSearchWithOptions())->raw()['hits'] ?? [];
-        } catch (Throwable $exception) {
-            report($exception);
-            $this->searchUnavailable = true;
-
-            return [];
-        }
+        $this->page = max(1, $page);
     }
 
-    public function mergeItems(array $resourceHits = [], array $collectionHits = [])
+    public function clearFilters(): void
     {
-        $resources = $this->resources->map(function($r) use ($resourceHits) {
-            $hit = collect($resourceHits)->firstWhere('id', $r->id);
-            return [
-                'type' => 'resource',
-                'id' => $r->id,
-                'slug' => $r->slug,
-                'title' => $r->title,
-                'description' => $r->description,
-                'troveType' => $r->troveType,
-                'tags' => $r->themeAndTopicTags,
-                'cover_image_thumb' => $r->cover_image_thumb,
-                'score' => $hit['_rankingScore'] ?? 0,
-            ];
-        });
-
-        $collections = $this->collections->map(function($c) use ($collectionHits) {
-            $hit = collect($collectionHits)->firstWhere('id', $c->id);
-            return [
-                'type' => 'collection',
-                'id' => $c->id,
-                'slug' => null, // collections use ID instead of slug
-                'title' => $c->title,
-                'description' => $c->description,
-                'troveType' => null,
-                'tags' => null,
-                'cover_image_thumb' => $c->cover_image_thumb,
-                'score' => $hit['_rankingScore'] ?? 0,
-            ];
-        });
-
-        // Merge and sort by score
-        $this->items = collect($resources)
-            ->merge($collections)
-            ->sortByDesc('score')
-            ->values();
-
-        $this->totalResourcesAndCollections = $this->items->count();
-        $this->pageCount = ceil($this->totalResourcesAndCollections / $this->perPage);
-
-        $this->loadPage(1);
+        $this->reset('query', 'selectedLanguages', 'selectedTroveTypes', 'page');
+        $this->selectedTagsByType = $this->emptyTagFilters();
     }
 
-    public function clearFilters()
+    public function clearSearch(): void
     {
-        $this->reset('query', 'selectedLanguages');
-        $this->initialiseTagFilters();
-        $this->dispatch('clearSearchInput');
-        $this->search();
+        $this->reset('query', 'page');
     }
 
-    public function clearSearch()
-    {
-        $this->reset('query');
-        $this->dispatch('clearSearchInput');
-        $this->search();
-    }
-
-    public function getFilterTagTypesProperty()
+    #[Computed]
+    public function filterTagTypes(): SupportCollection
     {
         $locale = app()->getLocale();
 
         return TagType::where('show_in_filter', true)
-            ->orderByRaw('ISNULL(order_column), order_column ASC')
-            ->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(label, '$.\"$locale\"')))")
-            ->with(['tags' => fn($q) => $q
-                ->orderByRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(name, '$.\"$locale\"')))")
-            ])
+            ->with('tags')
             ->get()
-            ->each(function ($tagType) {
-                if ($tagType->use_custom_tag_order) {
-                    $tagType->setRelation('tags',
-                        $tagType->tags
-                            ->sortBy(fn($tag) => [$tag->order_column === null ? 1 : 0, $tag->order_column ?? PHP_INT_MAX])
-                            ->values()
-                    );
-                }
+            ->sortBy(fn (TagType $tagType) => [
+                $tagType->order_column === null ? 1 : 0,
+                $tagType->order_column ?? 0,
+                mb_strtolower($tagType->getTranslation('label', $locale)),
+            ])
+            ->values()
+            ->each(function (TagType $tagType) use ($locale) {
+                $sortedTags = $tagType->use_custom_tag_order
+                    ? $tagType->tags->sortBy(fn (Tag $tag) => [
+                        $tag->order_column === null ? 1 : 0,
+                        $tag->order_column ?? 0,
+                        mb_strtolower($tag->getTranslation('name', $locale)),
+                    ])
+                    : $tagType->tags->sortBy(fn (Tag $tag) => mb_strtolower($tag->getTranslation('name', $locale)));
+
+                $tagType->setRelation('tags', $sortedTags->values());
             });
     }
 
-    public function loadPage(int $page): void
-    {
-        $page = max(1, min($page, $this->pageCount));
-
-        $this->currentPage = $page;
-        $this->renderedItems = $this->items->skip(($page - 1) * $this->perPage)->take($this->perPage);
-        $this->renderedResourcesAndCollections = $this->renderedItems->count();
-    }
-
     #[Computed]
-    public function startOfPage(): int
+    public function filterTroveTypes(): SupportCollection
     {
-        return ($this->currentPage-1) * $this->perPage + 1;
-    }
+        $locale = app()->getLocale();
 
-    #[Computed]
-    public function endOfPage(): int
-    {
-        return min($this->currentPage * $this->perPage, $this->totalResourcesAndCollections);
+        return TroveType::all()
+            ->sortBy(fn (TroveType $troveType) => mb_strtolower($troveType->getTranslation('label', $locale)))
+            ->values();
     }
 
     public function render()
     {
+        $this->searchUnavailable = false;
+
+        $result = $this->runSearch($this->buildSearchRequest());
+
+        if ($this->page > $result->totalPages && $result->totalPages > 0) {
+            $this->page = $result->totalPages;
+            $result = $this->runSearch($this->buildSearchRequest());
+        }
+
+        $items = $this->hydrateItems($result->hits);
+
+        $startOfPage = $result->totalHits === 0 ? 0 : ($this->page - 1) * $this->perPage + 1;
+
         return view('livewire.browse-all', [
+            'items' => $items,
             'filterTagTypes' => $this->filterTagTypes,
-            'items' => $this->items,
+            'filterTroveTypes' => $this->filterTroveTypes,
+            'totalHits' => $result->totalHits,
+            'totalPages' => $result->totalPages,
+            'startOfPage' => $startOfPage,
+            'endOfPage' => $startOfPage === 0 ? 0 : $startOfPage + $items->count() - 1,
+            'pageWindow' => $this->pageWindow($result->totalPages),
+            'facetsAvailable' => $result->facets !== null,
+            'tagCounts' => $result->facets->tagCounts ?? [],
+            'troveTypeCounts' => $result->facets->troveTypeCounts ?? [],
+            'localeCounts' => $result->facets->localeCounts ?? [],
         ]);
+    }
+
+    protected function buildSearchRequest(): LibrarySearchRequest
+    {
+        return new LibrarySearchRequest(
+            query: $this->query,
+            tagIdsByType: array_map(
+                fn ($tagIds) => array_map(intval(...), (array) $tagIds),
+                $this->selectedTagsByType,
+            ),
+            troveTypeIds: array_map(intval(...), $this->selectedTroveTypes),
+            locales: array_map(strval(...), $this->selectedLanguages),
+            page: max(1, $this->page),
+            perPage: $this->perPage,
+        );
+    }
+
+    /**
+     * On an engine outage the page stays usable: flag the notice and serve the
+     * date-ordered database fallback instead.
+     */
+    protected function runSearch(LibrarySearchRequest $request): LibrarySearchResult
+    {
+        try {
+            return app(SearchesLibrary::class)->search($request);
+        } catch (SearchUnavailableException) {
+            $this->searchUnavailable = true;
+
+            return app(DatabaseLibrarySearch::class)->search($request);
+        }
+    }
+
+    /**
+     * Hydrate the page's hits into card item arrays, in hit order. Hits whose row has
+     * vanished or lost public visibility since indexing are dropped silently.
+     *
+     * @param  array<int, LibraryHit>  $hits
+     */
+    protected function hydrateItems(array $hits): SupportCollection
+    {
+        $hitIds = fn (string $type) => collect($hits)->where('type', $type)->pluck('id')->all();
+
+        $troves = Trove::query()
+            ->whereNotNull('published_at')
+            ->whereNull('published_id')
+            ->whereIn('id', $hitIds('trove'))
+            ->with(['media', 'troveType'])
+            ->get()
+            ->keyBy('id');
+
+        $collections = Collection::query()
+            ->where('public', true)
+            ->whereIn('id', $hitIds('collection'))
+            ->with('media')
+            ->get()
+            ->keyBy('id');
+
+        return collect($hits)
+            ->map(function (LibraryHit $hit) use ($troves, $collections) {
+                if ($hit->type === 'trove') {
+                    return $this->troveItem($troves->get($hit->id));
+                }
+
+                return $this->collectionItem($collections->get($hit->id));
+            })
+            ->filter()
+            ->values();
+    }
+
+    private function troveItem(?Trove $trove): ?array
+    {
+        if ($trove === null) {
+            return null;
+        }
+
+        return [
+            'type' => 'resource',
+            'id' => $trove->id,
+            'slug' => $trove->slug,
+            'title' => $trove->title,
+            'description' => $trove->description,
+            'troveType' => $trove->troveType,
+            'tags' => null,
+            'cover_image_thumb' => $trove->cover_image_thumb,
+        ];
+    }
+
+    private function collectionItem(?Collection $collection): ?array
+    {
+        if ($collection === null) {
+            return null;
+        }
+
+        return [
+            'type' => 'collection',
+            'id' => $collection->id,
+            'slug' => null,
+            'title' => $collection->title,
+            'description' => $collection->description,
+            'troveType' => null,
+            'tags' => null,
+            'cover_image_thumb' => $collection->cover_image_thumb,
+        ];
+    }
+
+    /**
+     * The page numbers to render as links: a window around the current page.
+     *
+     * @return array<int, int>
+     */
+    protected function pageWindow(int $totalPages): array
+    {
+        $windowStart = max(1, $this->page - 2);
+        $windowEnd = min($totalPages, $this->page + 2);
+
+        return $windowEnd < $windowStart ? [] : range($windowStart, $windowEnd);
     }
 }
