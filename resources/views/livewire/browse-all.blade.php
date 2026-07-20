@@ -170,7 +170,7 @@
                         $hasActiveFilters = $query || !empty($selectedLanguages) || !empty($selectedTroveTypes) || collect($selectedTagsByType)->flatten()->isNotEmpty();
                     @endphp
                     @if($searchUnavailable)
-                        {{ t("Search is temporarily unavailable. Showing all resources and collections by date.") }}
+                        {{ t("Text-based search is temporarily unavailable. You can still browse resources below, and use the filters to narrow your search.") }}
                     @endif
                     @if($totalHits === 0)
                         @if($hasActiveFilters)
