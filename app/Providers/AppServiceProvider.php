@@ -81,6 +81,7 @@ class AppServiceProvider extends ServiceProvider
             }
             config([
                 'branding.features.show_language_filter' => $settings->show_language_filter,
+                'branding.features.show_trove_type_filter' => $settings->show_trove_type_filter,
             ]);
         } catch (\Exception) {
             // DB not ready (fresh install) - branding.php defaults remain

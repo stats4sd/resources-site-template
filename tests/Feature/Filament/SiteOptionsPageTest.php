@@ -22,3 +22,14 @@ it('persists the language filter toggle and locales repeater to SiteSetting', fu
     expect($settings->show_language_filter)->toBeFalse()
         ->and($settings->localesAsConfig())->toBe(['en' => 'English', 'es' => 'Español']);
 });
+
+it('persists the resource type filter toggle to SiteSetting', function () {
+    Livewire::test(SiteOptionsPage::class)
+        ->fillForm([
+            'show_trove_type_filter' => false,
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(SiteSetting::instance()->show_trove_type_filter)->toBeFalse();
+});

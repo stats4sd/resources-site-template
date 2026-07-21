@@ -11,6 +11,7 @@ class SiteSettingSeeder extends Seeder
     {
         SiteSetting::firstOrCreate(['id' => 1], [
             'show_language_filter' => true,
+            'show_trove_type_filter' => false,
             'locales' => [
                 ['code' => 'en', 'label' => 'English'],
             ],
