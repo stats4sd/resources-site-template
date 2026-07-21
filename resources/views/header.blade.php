@@ -32,7 +32,7 @@
                 <!-- Language Dropdown - hidden automatically when only one locale is configured -->
                 @if(count(config('branding.locales', ['en' => 'English'])) > 1)
                 <li class="relative nav-item dropdown" x-data="{ langOpen: false }">
-                    <a class="nav-link dropdown-toggle" role="button" aria-expanded="false"
+                    <a class="nav-link dropdown-toggle cursor-pointer hover:text-brand-primary" role="button" aria-expanded="false"
                         x-on:click="langOpen = !langOpen">
                         {{ t('Change Language') }}
                     </a>
@@ -57,7 +57,7 @@
                 <li><a href="/browse-all" class="text-gray-800 hover:text-gray-600">{{ t('Browse Library') }}</a></li>
                 @if(count(config('branding.locales', ['en' => 'English'])) > 1)
                 <li class="relative nav-item pt-2 text-gray-800" x-data="{ langOpen: false }">
-                    <a class="nav-link" role="button" x-on:click="langOpen = !langOpen">
+                    <a class="nav-link cursor-pointer hover:text-brand-primary" role="button" x-on:click="langOpen = !langOpen">
                         {{ t('Change Language') }}
                     </a>
                     <ul class="language-options" x-show="langOpen" x-on:click.outside="langOpen = false"
