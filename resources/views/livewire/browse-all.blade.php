@@ -97,8 +97,8 @@
                 </div>
                 @endif
 
-                <!-- Resource Type Filter -->
-                @if($filterTroveTypes->isNotEmpty())
+                <!-- Resource Type Filter - hidden via the "Show resource type filter" site option or when no resource types are configured -->
+                @if(config('branding.features.show_trove_type_filter', false) && $filterTroveTypes->isNotEmpty())
                 <div class="sm:ml-6 lg:ml-0" x-data="window.innerWidth >= 1024 ? { open: true } : { open: false }">
                     <div class="border-t border-gray-400 sm:border-0 lg:border-t my-6 sm:my-0 lg:my-6"></div>
                     <div class="flex justify-between items-center cursor-pointer" @click="open = !open">

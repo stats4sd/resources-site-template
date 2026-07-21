@@ -16,6 +16,7 @@ class SiteSettingFactory extends Factory
     {
         return [
             'show_language_filter' => true,
+            'show_trove_type_filter' => false,
             'locales' => [
                 ['code' => 'en', 'label' => 'English'],
             ],

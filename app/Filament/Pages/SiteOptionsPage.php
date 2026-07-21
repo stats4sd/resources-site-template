@@ -37,6 +37,7 @@ class SiteOptionsPage extends Page implements HasForms
         $settings = SiteSetting::instance();
         $this->form->fill([
             'show_language_filter' => $settings->show_language_filter,
+            'show_trove_type_filter' => $settings->show_trove_type_filter,
             'open_registration' => $settings->open_registration,
             'locales' => $settings->locales ?? [],
         ]);
@@ -51,6 +52,9 @@ class SiteOptionsPage extends Page implements HasForms
                         Forms\Components\Toggle::make('show_language_filter')
                             ->label('Show language filter in Browse Library')
                             ->helperText('When disabled, the language filter is hidden even if multiple languages are configured.'),
+                        Forms\Components\Toggle::make('show_trove_type_filter')
+                            ->label('Show resource type filter in Browse Library')
+                            ->helperText('When disabled, the resource type filter is hidden.'),
                         Forms\Components\Toggle::make('open_registration')
                             ->label('Allow open registration')
                             ->helperText('When enabled, anyone can register from the login page. New registrants get read-only (viewer) access until an admin promotes them. When disabled, registration is invite-only.'),
@@ -102,6 +106,7 @@ class SiteOptionsPage extends Page implements HasForms
         $settings = SiteSetting::instance();
         $settings->update([
             'show_language_filter' => $data['show_language_filter'],
+            'show_trove_type_filter' => $data['show_trove_type_filter'],
             'open_registration' => $data['open_registration'],
             'locales' => $data['locales'],
         ]);
