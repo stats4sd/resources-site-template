@@ -22,12 +22,12 @@
             <ul class="flex space-x-6 font-medium uppercase text-base">
                 <li><a href="/home"
                         class=" hover:text-brand-primary {{ request()->is('home') ? 'border-b-[6px] pb-5 border-brand-primary pb-1' : '' }} ">
-                        {{ t('Library Home') }}
+                        {{ \App\Models\SiteContent::get('nav_library_home_label') }}
                     </a></li>
-                <li><a href="/browse-all"
+                {{-- <li><a href="/browse-all"
                         class=" hover:text-brand-primary  {{ request()->is('browse-all') ? 'border-b-[6px] pb-5 border-brand-primary pb-1' : '' }} !hover:text-red">
                         {{ t('Browse Library') }}
-                    </a></li>
+                    </a></li> --}}
 
                 <!-- Language Dropdown - hidden automatically when only one locale is configured -->
                 @if(count(config('branding.locales', ['en' => 'English'])) > 1)
@@ -53,8 +53,8 @@
     <div class="lg:hidden" x-show="open" x-on:click.outside="open = false" style="display: none;">
         <nav class="bg-brand-bg text-right">
             <ul class="flex flex-col space-y-2 px-6 pb-4">
-                <li><a href="/home" class="text-gray-800 hover:text-gray-600">{{ t('Library Home') }}</a></li>
-                <li><a href="/browse-all" class="text-gray-800 hover:text-gray-600">{{ t('Browse Library') }}</a></li>
+                <li><a href="/home" class="text-gray-800 hover:text-gray-600">{{ \App\Models\SiteContent::get('nav_library_home_label') }}</a></li>
+                {{-- <li><a href="/browse-all" class="text-gray-800 hover:text-gray-600">{{ t('Browse Library') }}</a></li> --}}
                 @if(count(config('branding.locales', ['en' => 'English'])) > 1)
                 <li class="relative nav-item pt-2 text-gray-800" x-data="{ langOpen: false }">
                     <a class="nav-link cursor-pointer hover:text-brand-primary" role="button" x-on:click="langOpen = !langOpen">

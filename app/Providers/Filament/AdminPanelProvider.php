@@ -5,7 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Auth\Register;
 use App\Filament\Pages\Auth\SetPassword;
 use App\Filament\Pages\Login;
-use App\Filament\Pages\SiteContentPage;
+use App\Filament\Pages\SiteContentIfaPage;
 use App\Filament\Pages\SiteOptionsPage;
 use App\Filament\Resources\CollectionResource;
 use App\Filament\Resources\InviteResource;
@@ -97,7 +97,7 @@ class AdminPanelProvider extends PanelProvider
                         NavigationGroup::make('Site Settings')
                             ->items([
                                 ...SiteOptionsPage::getNavigationItems(),
-                                ...SiteContentPage::getNavigationItems(),
+                                ...SiteContentIfaPage::getNavigationItems(),
                             ]),
                         NavigationGroup::make('Users')
                             ->items([

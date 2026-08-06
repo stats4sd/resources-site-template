@@ -1,0 +1,229 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-24T08:52:29+00:00\n"
+"PO-Revision-Date: 2026-07-24T08:52:29+00:00\n"
+"Language: fr\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+
+msgid "Watch on"
+msgstr "Regarder sur"
+
+msgid "Quick links"
+msgstr "Liens rapides"
+
+msgid "Resource Library"
+msgstr "Bibliothèque de ressources"
+
+msgid "Contact us"
+msgstr "Contactez-nous"
+
+msgid "Colin talking about Let's EAT - AEC Seminar"
+msgstr "Colin parle de Let's EAT - Séminaire AEC"
+
+msgid "Reading"
+msgstr "Lecture"
+
+msgid "Blog · AgroecologyNow!"
+msgstr "Blog · AgroecologyNow!"
+
+msgid "Transforming Food Systems Through Agroecology Education: Head, Hands, and Heart"
+msgstr "Transformer les systèmes alimentaires grâce à l'éducation en agroécologie : tête, mains et cœur"
+
+msgid "This short blog piece on AgroecologyNow! explores the signature pedagogies — transdisciplinary, experiential, and critical learning — that we consider important for agroecology education to be transformative."
+msgstr "Ce court article de blog sur AgroecologyNow! explore les pédagogies caractéristiques — transdisciplinaire, expérientielle et d'apprentissage critique — que nous considérons importantes pour que l'éducation en agroécologie soit transformatrice."
+
+msgid "Read"
+msgstr "Lire"
+
+msgid "Webinar"
+msgstr "Webinaire"
+
+msgid "Agroecology Coalition · December 2025"
+msgstr "Coalition pour l'agroécologie · Décembre 2025"
+
+msgid "Let's EAT: Community of Practice on Agroecology Education"
+msgstr "Let's EAT : communauté de pratique sur l'éducation en agroécologie"
+
+msgid "Members of our community of practice discuss their programmes in relation to the signature pedagogies they use. Presented in English and Spanish."
+msgstr "Des membres de notre communauté de pratique présentent leurs programmes en lien avec les pédagogies caractéristiques qu'ils utilisent. Présenté en anglais et en espagnol."
+
+msgid "Watch"
+msgstr "Regarder"
+
+msgid "Change Language"
+msgstr "Changer de langue"
+
+msgid "Collection"
+msgstr "Collection"
+
+msgid "resources"
+msgstr "ressources"
+
+msgid "Available in:"
+msgstr "Disponible en :"
+
+msgid "Browse Library"
+msgstr "Parcourir la bibliothèque"
+
+msgid "Share"
+msgstr "Partager"
+
+msgid "Share by email"
+msgstr "Partager par e-mail"
+
+msgid "Share on WhatsApp"
+msgstr "Partager sur WhatsApp"
+
+msgid "Share on LinkedIn"
+msgstr "Partager sur LinkedIn"
+
+msgid "Copy link"
+msgstr "Copier le lien"
+
+msgid "Description"
+msgstr "Description"
+
+msgid "Resources in this collection"
+msgstr "Ressources de cette collection"
+
+msgid "VIEW"
+msgstr "VOIR"
+
+msgid "Author"
+msgstr "Auteur"
+
+msgid "Authors"
+msgstr "Auteurs"
+
+msgid "PREVIEW MODE: This resource has not been published and is only visible to authorised users"
+msgstr "MODE APERÇU : Cette ressource n'a pas été publiée et n'est visible que par les utilisateurs autorisés"
+
+msgid "View / Download"
+msgstr "Voir / Télécharger"
+
+msgid "Download all (ZIP)"
+msgstr "Tout télécharger (ZIP)"
+
+msgid "Collections including this resource"
+msgstr "Collections incluant cette ressource"
+
+msgid "Related resources"
+msgstr "Ressources associées"
+
+msgid "Introductions to agroecology"
+msgstr "Introductions à l'agroécologie"
+
+msgid "Resources for program leads"
+msgstr "Ressources pour les responsables de programmes"
+
+msgid "Course syllabi"
+msgstr "Plans de cours"
+
+msgid "Teaching approaches and pedagogies"
+msgstr "Approches et pédagogies d'enseignement"
+
+msgid "Case studies of agroecology programs"
+msgstr "Études de cas de programmes en agroécologie"
+
+msgid " "
+msgstr " "
+
+msgid "About us"
+msgstr "À propos de nous"
+
+msgid "UVM Let's EAT Page"
+msgstr "Page Let's EAT de l'UVM"
+
+msgid "Information for students"
+msgstr "Informations pour les étudiants"
+
+msgid "Browse by topic"
+msgstr "Parcourir par thème"
+
+msgid "View all"
+msgstr "Tout voir"
+
+msgid "USA"
+msgstr "États-Unis"
+
+msgid "Mexico"
+msgstr "Mexique"
+
+msgid "Spain"
+msgstr "Espagne"
+
+msgid "Norway"
+msgstr "Norvège"
+
+msgid "Palestine"
+msgstr "Palestine"
+
+msgid "UK"
+msgstr "Royaume-Uni"
+
+msgid "University of Vermont"
+msgstr "Université du Vermont"
+
+msgid "Veracruzana University"
+msgstr "Université Veracruzana"
+
+msgid "ECOSUR"
+msgstr "ECOSUR"
+
+msgid "Norwegian University of Life Sciences (NMBU)"
+msgstr "Université norvégienne des sciences de la vie (NMBU)"
+
+msgid "UNIA/UCO/UPO"
+msgstr "UNIA/UCO/UPO"
+
+msgid "UCAS & PTU-K"
+msgstr "UCAS & PTU-K"
+
+msgid "Information about this programme and its agroecology courses will be added here soon."
+msgstr "Les informations sur ce programme et ses cours d'agroécologie seront ajoutées ici prochainement."
+
+msgid "No resources available for this collection."
+msgstr "Aucune ressource disponible pour cette collection."
+
+msgid "No related resources found."
+msgstr "Aucune ressource associée trouvée."
+
+msgid "No collections available for this resource."
+msgstr "Aucune collection disponible pour cette ressource."
+
+msgid "Search and filter"
+msgstr "Rechercher et filtrer"
+
+msgid "Search here"
+msgstr "Rechercher ici"
+
+msgid "Showing "
+msgstr "Affichage de "
+
+msgid "out of"
+msgstr "sur"
+
+msgid " resources and collections"
+msgstr " ressources et collections"
+
+msgid "Text-based search is temporarily unavailable. You can still browse resources below, and use the filters to narrow your search."
+msgstr "La recherche textuelle est temporairement indisponible. Vous pouvez toujours parcourir les ressources ci-dessous et utiliser les filtres pour affiner votre recherche."
+
+msgid "No resources or collections match your search or filters."
+msgstr "Aucune ressource ou collection ne correspond à votre recherche ou à vos filtres."
+
+msgid "No resources or collections have been added yet."
+msgstr "Aucune ressource ni collection n'a encore été ajoutée."
+
+msgid "Clear search"
+msgstr "Effacer la recherche"
+
+msgid "Clear Filters"
+msgstr "Effacer les filtres"

@@ -25,7 +25,7 @@ Route::group([
     });
 
     Route::get('/home', function () {
-        return view('home');
+        return view('home-ifa');
     })->name('home');
 
     Route::get('/resources/preview/{slug}', function ($slug) {
@@ -50,7 +50,7 @@ Route::group([
         return view('trove', ['resource' => $resource, 'hasCollections' => $resource->collections()->where('public', 1)->exists()]);
     })->name('resources.show');
 
-    Route::livewire('/browse-all', BrowseAll::class)->name('browse-all');
+    // Route::livewire('/browse-all', BrowseAll::class)->name('browse-all');
 
     Route::get('/collections/{id}', function ($id) {
         $collection = Collection::where('id', $id)->where('public', 1)->firstOrFail();
@@ -67,5 +67,13 @@ Route::group([
 
         return $trove->downloadAllFilesAsZip();
     })->name('trove.download.zip');
+
+    Route::get('/students', function () {
+        return view('students');
+    })->name('students');
+
+    Route::get('/about', function () {
+        return view('about');
+    })->name('about');
 
 });

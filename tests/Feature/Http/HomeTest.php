@@ -1,10 +1,10 @@
 <?php
 
-use Database\Seeders\Prep\SiteContentSeeder;
+use Database\Seeders\Prep\SiteContentIfaSeeder;
 
 beforeEach(function () {
     bootPublicSite();
-    $this->seed(SiteContentSeeder::class);
+    $this->seed(SiteContentIfaSeeder::class);
 });
 
 it('redirects the root to /home', function () {
@@ -15,5 +15,5 @@ it('renders the home page with site content', function () {
     $response = $this->get('/home');
 
     $response->assertOk()
-        ->assertSee('Resources Library'); // seeded home_heading_line2
+        ->assertSee('Resource Library: Education for Agroecological Transformations');
 });

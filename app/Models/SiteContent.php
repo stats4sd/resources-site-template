@@ -19,6 +19,6 @@ class SiteContent extends Model
     {
         $locale = $locale ?? app()->getLocale();
         $record = static::where('key', $key)->first();
-        return $record?->getTranslation('value', $locale, false) ?: null;
+        return $record?->getTranslation('value', $locale) ?: null;
     }
 }

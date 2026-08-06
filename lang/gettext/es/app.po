@@ -1,0 +1,229 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-24T08:52:29+00:00\n"
+"PO-Revision-Date: 2026-07-24T08:52:29+00:00\n"
+"Language: es\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+msgid "Watch on"
+msgstr "Ver en"
+
+msgid "Quick links"
+msgstr "Enlaces rápidos"
+
+msgid "Resource Library"
+msgstr "Biblioteca de recursos"
+
+msgid "Contact us"
+msgstr "Contáctenos"
+
+msgid "Colin talking about Let's EAT - AEC Seminar"
+msgstr "Colin habla sobre Let's EAT - Seminario AEC"
+
+msgid "Reading"
+msgstr "Lectura"
+
+msgid "Blog · AgroecologyNow!"
+msgstr "Blog · AgroecologyNow!"
+
+msgid "Transforming Food Systems Through Agroecology Education: Head, Hands, and Heart"
+msgstr "Transformando los sistemas alimentarios a través de la educación en agroecología: cabeza, manos y corazón"
+
+msgid "This short blog piece on AgroecologyNow! explores the signature pedagogies — transdisciplinary, experiential, and critical learning — that we consider important for agroecology education to be transformative."
+msgstr "Este breve artículo de blog en AgroecologyNow! explora las pedagogías distintivas —transdisciplinaria, experiencial y de aprendizaje crítico— que consideramos importantes para que la educación en agroecología sea transformadora."
+
+msgid "Read"
+msgstr "Leer"
+
+msgid "Webinar"
+msgstr "Seminario web"
+
+msgid "Agroecology Coalition · December 2025"
+msgstr "Coalición de Agroecología · Diciembre de 2025"
+
+msgid "Let's EAT: Community of Practice on Agroecology Education"
+msgstr "Let's EAT: Comunidad de práctica sobre educación en agroecología"
+
+msgid "Members of our community of practice discuss their programmes in relation to the signature pedagogies they use. Presented in English and Spanish."
+msgstr "Miembros de nuestra comunidad de práctica hablan sobre sus programas en relación con las pedagogías distintivas que utilizan. Presentado en inglés y español."
+
+msgid "Watch"
+msgstr "Ver"
+
+msgid "Change Language"
+msgstr "Cambiar idioma"
+
+msgid "Collection"
+msgstr "Colección"
+
+msgid "resources"
+msgstr "recursos"
+
+msgid "Available in:"
+msgstr "Disponible en:"
+
+msgid "Browse Library"
+msgstr "Explorar biblioteca"
+
+msgid "Share"
+msgstr "Compartir"
+
+msgid "Share by email"
+msgstr "Compartir por correo electrónico"
+
+msgid "Share on WhatsApp"
+msgstr "Compartir en WhatsApp"
+
+msgid "Share on LinkedIn"
+msgstr "Compartir en LinkedIn"
+
+msgid "Copy link"
+msgstr "Copiar enlace"
+
+msgid "Description"
+msgstr "Descripción"
+
+msgid "Resources in this collection"
+msgstr "Recursos en esta colección"
+
+msgid "VIEW"
+msgstr "VER"
+
+msgid "Author"
+msgstr "Autor"
+
+msgid "Authors"
+msgstr "Autores"
+
+msgid "PREVIEW MODE: This resource has not been published and is only visible to authorised users"
+msgstr "MODO DE VISTA PREVIA: Este recurso no ha sido publicado y solo es visible para usuarios autorizados"
+
+msgid "View / Download"
+msgstr "Ver / Descargar"
+
+msgid "Download all (ZIP)"
+msgstr "Descargar todo (ZIP)"
+
+msgid "Collections including this resource"
+msgstr "Colecciones que incluyen este recurso"
+
+msgid "Related resources"
+msgstr "Recursos relacionados"
+
+msgid "Introductions to agroecology"
+msgstr "Introducciones a la agroecología"
+
+msgid "Resources for program leads"
+msgstr "Recursos para responsables de programas"
+
+msgid "Course syllabi"
+msgstr "Programas de curso"
+
+msgid "Teaching approaches and pedagogies"
+msgstr "Enfoques y pedagogías de enseñanza"
+
+msgid "Case studies of agroecology programs"
+msgstr "Estudios de caso de programas de agroecología"
+
+msgid " "
+msgstr " "
+
+msgid "About us"
+msgstr "Sobre nosotros"
+
+msgid "UVM Let's EAT Page"
+msgstr "Página de Let's EAT de UVM"
+
+msgid "Information for students"
+msgstr "Información para estudiantes"
+
+msgid "Browse by topic"
+msgstr "Explorar por tema"
+
+msgid "View all"
+msgstr "Ver todo"
+
+msgid "USA"
+msgstr "EE. UU."
+
+msgid "Mexico"
+msgstr "México"
+
+msgid "Spain"
+msgstr "España"
+
+msgid "Norway"
+msgstr "Noruega"
+
+msgid "Palestine"
+msgstr "Palestina"
+
+msgid "UK"
+msgstr "Reino Unido"
+
+msgid "University of Vermont"
+msgstr "Universidad de Vermont"
+
+msgid "Veracruzana University"
+msgstr "Universidad Veracruzana"
+
+msgid "ECOSUR"
+msgstr "ECOSUR"
+
+msgid "Norwegian University of Life Sciences (NMBU)"
+msgstr "Universidad Noruega de Ciencias de la Vida (NMBU)"
+
+msgid "UNIA/UCO/UPO"
+msgstr "UNIA/UCO/UPO"
+
+msgid "UCAS & PTU-K"
+msgstr "UCAS & PTU-K"
+
+msgid "Information about this programme and its agroecology courses will be added here soon."
+msgstr "La información sobre este programa y sus cursos de agroecología se añadirá aquí próximamente."
+
+msgid "No resources available for this collection."
+msgstr "No hay recursos disponibles para esta colección."
+
+msgid "No related resources found."
+msgstr "No se encontraron recursos relacionados."
+
+msgid "No collections available for this resource."
+msgstr "No hay colecciones disponibles para este recurso."
+
+msgid "Search and filter"
+msgstr "Buscar y filtrar"
+
+msgid "Search here"
+msgstr "Buscar aquí"
+
+msgid "Showing "
+msgstr "Mostrando "
+
+msgid "out of"
+msgstr "de"
+
+msgid " resources and collections"
+msgstr " recursos y colecciones"
+
+msgid "Text-based search is temporarily unavailable. You can still browse resources below, and use the filters to narrow your search."
+msgstr "La búsqueda por texto no está disponible temporalmente. Aún puede explorar los recursos a continuación y usar los filtros para acotar su búsqueda."
+
+msgid "No resources or collections match your search or filters."
+msgstr "Ningún recurso o colección coincide con su búsqueda o filtros."
+
+msgid "No resources or collections have been added yet."
+msgstr "Todavía no se han añadido recursos ni colecciones."
+
+msgid "Clear search"
+msgstr "Borrar búsqueda"
+
+msgid "Clear Filters"
+msgstr "Borrar filtros"

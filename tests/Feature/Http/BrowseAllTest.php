@@ -46,7 +46,7 @@ it('serves the browse page over HTTP', function () {
     bindFakeSearch();
 
     $this->get('/browse-all')->assertOk();
-});
+})->skip('The /browse-all route is commented out for this IFA site — browsing now lives on /home via BrowseAllIfa.');
 
 it('maps query, filters and page into the search request', function () {
     $tagType = TagType::factory()->shownInFilter()->create();

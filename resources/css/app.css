@@ -27,8 +27,8 @@
     /* -------------------------------------------------------
      * Branding - edit these values to rebrand the site
      * ------------------------------------------------------- */
-    --brand-primary: #D32229;
-    --brand-secondary: #D32229;         /* if no secondary colour, set to same as primary */
+    --brand-primary: #006b51;
+    --brand-secondary: #ffd100;         /* if no secondary colour, set to same as primary */
 
     --brand-bg: #ffffff;                /* page background colour */
     --brand-footer-bg: #4d4d4d;         /* footer background colour */
