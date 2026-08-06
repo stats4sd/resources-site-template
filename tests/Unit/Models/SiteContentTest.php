@@ -19,11 +19,10 @@ it('returns the value for the current app locale by default', function () {
     expect(SiteContent::get('greeting'))->toBe('Hello');
 });
 
-it('falls back to the app fallback locale when a translation is missing', function () {
+it('respects an explicit locale without falling back', function () {
     SiteContent::create(['key' => 'only_en', 'value' => ['en' => 'Hello']]);
 
     expect(SiteContent::get('only_en', 'en'))->toBe('Hello')
-        // config('app.fallback_locale') is 'en', so an untranslated locale still
-        // shows the English content instead of a blank page.
-        ->and(SiteContent::get('only_en', 'es'))->toBe('Hello');
+        // no fallback: a locale with no translation returns null, not the English value
+        ->and(SiteContent::get('only_en', 'es'))->toBeNull();
 });
